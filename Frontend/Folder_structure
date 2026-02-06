@@ -1,0 +1,54 @@
+📁 What Each Folder Does
+🔹 pages/
+
+Full screens (one route = one folder)
+
+Example:
+
+/upload → UploadPortfolio.jsx
+
+🔹 components/
+
+Reusable UI blocks
+
+Button
+Card
+Navbar
+Charts
+
+
+No business logic.
+
+🔹 services/
+
+All API calls
+
+fetch portfolio
+send investment input
+
+
+No UI code.
+
+🔹 hooks/
+
+Reusable logic
+
+useFetch
+useSession
+useDebounce
+
+🔹 context/
+
+Global app state
+
+session id
+portfolio data
+allocation data
+
+🔹 routes/
+
+All route definitions
+
+🔹 utils/
+
+Helper functions & constants
