@@ -11,13 +11,12 @@ function PortfolioUpload() {
 
     setError("");
 
-    if (file.type === "text/csv") {
-      handleCSV(file);
-    } else if (file.type === "application/pdf") {
-        
+    if (file.type === "application/pdf") {
+
       handlePDF(file);
+
     } else {
-      setError("Unsupported file type. Upload CSV or PDF only.");
+      setError("Unsupported file type. Upload PDF only.");
     }
   };
 
@@ -27,7 +26,7 @@ function PortfolioUpload() {
 
       <input
         type="file"
-        accept=".csv,.pdf"
+        accept=".pdf"
         onChange={handleFileUpload}
       />
 
