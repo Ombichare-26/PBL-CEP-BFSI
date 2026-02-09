@@ -1,0 +1,84 @@
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);
+  gap: 3rem;
+  padding: 4rem 3rem 3rem;
+  align-items: center;
+}
+
+.hero-text h1 {
+  font-size: clamp(2.2rem, 4vw, 3rem);
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.hero-text p {
+  margin-top: 1.25rem;
+  max-width: 30rem;
+  color: #4b5563;
+}
+
+.hero-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 1.75rem;
+}
+
+.primary-btn,
+.secondary-btn {
+  padding: 0.7rem 1.4rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease,
+    color 0.15s ease, border-color 0.15s ease;
+}
+
+ .primary-btn {
+  background: #0ea5e9;
+  color: #ffffff;
+  box-shadow: 0 12px 30px rgba(14, 165, 233, 0.35);
+}
+
+.primary-btn:hover {
+  background: #0284c7;
+  transform: translateY(-1px);
+}
+
+.secondary-btn {
+  background: transparent;
+  color: #111827;
+  border: 1px solid #d1d5db;
+}
+
+.secondary-btn:hover {
+  background: #e5f3fb;
+  border-color: #0ea5e9;
+}
+
+.hero-image {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.image-box {
+  width: 260px;
+  height: 260px;
+  border-radius: 1.75rem;
+  background: radial-gradient(circle at top left, #e0f2fe, #bfdbfe 45%, #ffffff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4rem;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15);
+}
+
+@media (max-width: 640px) {
+  .image-box {
+    width: 210px;
+    height: 210px;
+    font-size: 3.2rem;
+  }
+}
+

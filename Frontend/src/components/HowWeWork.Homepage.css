@@ -1,0 +1,47 @@
+/* How We Work section */
+.how {
+  padding: 3rem 3rem 2rem;
+  background: #ffffff;
+}
+
+.how h2 {
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+.step {
+  padding: 1.3rem 1.2rem;
+  border-radius: 1rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.step h3 {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: #0ea5e9;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  margin-bottom: 0.6rem;
+}
+
+.step p {
+  color: #4b5563;
+}
+
+@media (max-width: 640px) {
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+

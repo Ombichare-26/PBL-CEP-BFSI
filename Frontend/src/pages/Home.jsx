@@ -1,18 +1,15 @@
-import Navbar from '../components/Navbar';
-import Hero from '../components/Hero';
-import HowItWorks from '../components/HowItWorks';
-import Footer from '../components/Footer';
+import Hero from "../components/Hero.Homepage";
+import HowWeWork from "../components/HowWeWork.Homepage";
+import Privacy from "../components/Privacy.Homepage";
+import Footer from "../components/Footer";
 
-
-function Home() {
+export default function Home() {
   return (
-    <div>
-      <Navbar />
+    <>
       <Hero />
-      <HowItWorks />
+      <HowWeWork />
+      <Privacy />
       <Footer />
-    </div>
+    </>
   );
 }
-
-export default Home;
