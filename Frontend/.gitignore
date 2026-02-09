@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# dependencies
+node_modules/
+
+# env files
+.env
+
+# OS files
+.DS_Store
+
+# logs
+npm-debug.log*
