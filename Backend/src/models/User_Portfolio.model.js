@@ -1,35 +1,33 @@
-import mongoose, { mongo } from "mongoose";
+import mongoose from "mongoose";
 
-const UserPortfolioSchema = new mongoose.Schema({
-    portfolio_id:{
-        type:String,
-        unique: true,
-        required:true
+const UserPortfolioSchema = new mongoose.Schema(
+  {
+    session_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Session",
+      required: true
     },
-    session_id:{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:"Session",
-        required:true
-    },
-    schema_name:{
-       
 
+    scheme_name: {
+      type: String,
+      required: true
+    },
 
+    units: {
+      type: Number,
+      required: true
     },
-    isin:{
-      
-        
-    },
-    units:{
-        
-        
-    },
-     amfi_code:{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:"AMFIMaster",
-        
+
+    amfi_code: {
+      type: String   // optional, can be filled later
     }
-     
-},{timestamps: true});
+  },
+  { timestamps: true }
+);
 
-export default UserPortfolio = mongoose.model("UserPortfolio",UserPortfolioSchemaSchema);
+const UserPortfolio = mongoose.model(
+  "UserPortfolio",
+  UserPortfolioSchema
+);
+
+export default UserPortfolio;
