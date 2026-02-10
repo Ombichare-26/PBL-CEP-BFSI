@@ -1,11 +1,16 @@
 import mongoose from "mongoose";
 
-const SessionSchema = new mongoose.Schema({
-    session_id:{
-        type:String,
-        required:true,
-        unique:true
+const SessionSchema = new mongoose.Schema(
+  {
+    expires_at: {
+      type: Date
     }
-},{timestamps:trues});
+  },
+  {
+    timestamps: true
+  }
+);
 
-export default Schema = mongoose.model("Schema",SessionSchema);
+const Session = mongoose.model("Session", SessionSchema);
+
+export default Session;

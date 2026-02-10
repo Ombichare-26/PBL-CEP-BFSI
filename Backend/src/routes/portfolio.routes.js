@@ -1,10 +1,10 @@
 import express from "express"
-import {saveUserPortfoio} from "../controllers/portfolio"
+import { saveUserPortfolio } from "../controllers/portfolio.controller.js"
 
-const router=express.Router();
+const router = express.Router();
 
 
-router.post.apply("/",saveUserPortfoio)
+router.post("/", saveUserPortfolio)
 
 
 export default router;

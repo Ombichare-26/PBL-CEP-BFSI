@@ -15,12 +15,22 @@ app.use(cookieParser())
 export { app }
 
 
-//routes import
-import userRouter from './routes/user.routes.js'
+// routes import
+import sessionRouter from "./routes/session.routes.js";
+import investmentRouter from "./routes/investment.routes.js";
+import portfolioRouter from "./routes/portfolio.routes.js";
 
-//routes declaration
-app.use("/api/v1/user",userRouter)         //used Middleware
+// routes declaration
+app.use("/api/v1/session", sessionRouter);
+app.use("/api/v1/investments", investmentRouter);
+app.use("/api/v1/portfolio", portfolioRouter);
 
-//Ex:- http://localhost:8000/api/v1/user/register
+// Example:
+// http://localhost:8000/api/v1/session
+// http://localhost:8000/api/v1/investments
+// http://localhost:8000/api/v1/portfolio
+app.get("/", (req, res) => {
+    res.send("Backend is running");
+  });
 
 export default app

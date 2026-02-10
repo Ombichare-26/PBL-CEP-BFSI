@@ -1,7 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { Session } from "../models/Session.model.js";
+import Session from "../models/Session.model.js";
 
 export const createSession = asyncHandler(async (req, res) => {
   const expiresAt = new Date();
