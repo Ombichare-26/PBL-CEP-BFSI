@@ -14,8 +14,8 @@ export default function Hero() {
         </p>
 
         <div className="hero-buttons">
-          <button className="primary-btn" onClick={console}>Get Your CAS</button>
-          <button className="secondary-btn" onClick={handleClick}>Get Recommendation</button>
+          <button className="primary-btn" onClick={console.log("Get Your CAS")}>Get Your CAS</button>
+          <button className="secondary-btn" onClick={console.log("Get Recommendation")}>Get Recommendation</button>
         </div>
       </div>
 
