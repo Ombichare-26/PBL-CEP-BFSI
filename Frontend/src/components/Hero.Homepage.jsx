@@ -1,5 +1,6 @@
 import "./Hero.Homepage.css";
 
+
 export default function Hero() {
   return (
     <section className="hero">
@@ -13,8 +14,8 @@ export default function Hero() {
         </p>
 
         <div className="hero-buttons">
-          <button className="primary-btn">Get Your CAS</button>
-          <button className="secondary-btn">Get Recommendation</button>
+          <button className="primary-btn" onClick={console}>Get Your CAS</button>
+          <button className="secondary-btn" onClick={handleClick}>Get Recommendation</button>
         </div>
       </div>
 
