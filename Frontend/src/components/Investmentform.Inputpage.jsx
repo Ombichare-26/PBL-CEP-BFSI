@@ -1,4 +1,4 @@
-import "./InvestmentForm.css";
+import "./Investmentform.Inputpage.css";
 
 export default function InvestmentForm({
   amount,

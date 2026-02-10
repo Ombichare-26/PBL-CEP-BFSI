@@ -1,4 +1,4 @@
-import "./CasUpload.css";
+import "./CasUpload.Inputpage.css";
 
 export default function CasUpload({ onFileSelect }) {
   const handleFileChange = (e) => {
