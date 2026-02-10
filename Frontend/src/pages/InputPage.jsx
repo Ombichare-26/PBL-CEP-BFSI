@@ -1,12 +1,16 @@
-
+import InvestmentForm from "../components/Investmentform.Inputpage";
+import CasUpload from "../components/casUpload.Inputpage";
 
 
 
 export default function Input()
 {
-    return
-    (
-        <h1>Hello there we are at input page</h1>
+    return(
+    <>
+    
+        <CasUpload />
+        <InvestmentForm />
+        </>
     );
 
 }
