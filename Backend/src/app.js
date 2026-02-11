@@ -3,6 +3,8 @@ import cors from 'cors'
 import cookieParser from "cookie-parser";
 const app = express();
 
+
+
 app.use(cors({
     origin: process.env.CORS_ORIGIN,
     credentials: true,
@@ -21,6 +23,7 @@ import investmentRouter from "./routes/investment.routes.js";
 import portfolioRouter from "./routes/portfolio.routes.js";
 
 // routes declaration
+app.use(express.json());
 app.use("/api/v1/session", sessionRouter);
 app.use("/api/v1/investments", investmentRouter);
 app.use("/api/v1/portfolio", portfolioRouter);
