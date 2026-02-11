@@ -1,2 +1,2 @@
 PORT=8000
-MONGODB_URI=mongodb+srv://ombichare:jaishreeram@cluster2.bkt1son.mongodb.net
+MONGODB_URI=mongodb+srv://ombichare:<password>@cluster2.bkt1son.mongodb.net
