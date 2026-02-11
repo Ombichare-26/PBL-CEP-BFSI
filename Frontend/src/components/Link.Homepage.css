@@ -1,0 +1,46 @@
+.link-section {
+    background-color: #f9fafb;
+    padding: 12px 0;
+    overflow: hidden;
+    border-top: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .marquee {
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+  }
+  
+  .marquee-content {
+    display: inline-flex;
+    gap: 40px;
+    white-space: nowrap;
+    animation: scroll-left 15s linear infinite;
+    font-size: 16px;
+    align-items: center;
+  }
+  .marquee-content:hover {
+    animation-play-state: paused;
+  }
+  
+  
+  .external-link {
+    color: #2563eb;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  
+  .external-link:hover {
+    text-decoration: underline;
+  }
+  
+  @keyframes scroll-left {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(300%);
+    }
+  }
+  
