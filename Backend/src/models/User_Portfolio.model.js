@@ -20,7 +20,13 @@ const UserPortfolioSchema = new mongoose.Schema(
 
     amfi_code: {
       type: String   // optional, can be filled later
-    }
+    },
+
+    category: {
+    type: String,
+    enum: ["ETF", "FLEXI", "SMALL","OTHER"],// optional, can be filled later
+    required: false
+  }
   },
   { timestamps: true }
 );

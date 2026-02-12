@@ -78,7 +78,8 @@ export const uploadPortfolioFromJSON = async (req, res) => {
       session_id: sessionId,
       scheme_name: fund.scheme_name,
       units: fund.units,
-      amfi_code: fund.amfi_code || null
+      amfi_code: fund.amfi_code || null,
+      category: fund.category || "OTHER" // default to OTHER if category is missing
     }));
 
     // Optional: Remove old portfolio for same session
