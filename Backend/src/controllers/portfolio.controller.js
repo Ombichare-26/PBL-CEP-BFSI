@@ -64,7 +64,7 @@ import UserPortfolio from "../models/User_Portfolio.model.js";
 export const uploadPortfolioFromJSON = async (req, res) => {
   try {
     // Replace with actual session id
-    const sessionId = "698e17f924b1fd63d1a5807d";
+    const sessionId = "698f178b0050d49a2a3ec738";
 
     // Get absolute path to backend root JSON file
     const filePath = path.join(process.cwd(), "portfolio_holdings.json");
