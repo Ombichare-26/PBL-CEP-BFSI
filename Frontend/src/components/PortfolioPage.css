@@ -1,0 +1,59 @@
+body {
+    font-family: Arial;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .navbar {
+    background: #1e293b;
+    color: white;
+    padding: 15px;
+  }
+  
+  .user-summary {
+    padding: 20px;
+    background: #f1f5f9;
+  }
+  
+  .chart-section {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 20px;
+  }
+  
+  .category-buttons button {
+    display: block;
+    margin: 10px 0;
+    padding: 10px 20px;
+    cursor: pointer;
+  }
+  
+  .category-buttons .active {
+    background: #1e40af;
+    color: white;
+  }
+  
+  .fund-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+  
+  .fund-table th,
+  .fund-table td {
+    border: 1px solid #ddd;
+    padding: 10px;
+  }
+  
+  .fund-table tr:hover {
+    background: #f3f4f6;
+    cursor: pointer;
+  }
+  
+  .fund-details {
+    margin: 20px;
+    padding: 20px;
+    background: #e2e8f0;
+  }
+  
