@@ -82,7 +82,7 @@ function PortfolioPage() {
 
   return (
     <>
-      <Navbar />
+      
 
       {/* User Input Summary */}
       {userInput && <UserInputSummary data={userInput} />}
