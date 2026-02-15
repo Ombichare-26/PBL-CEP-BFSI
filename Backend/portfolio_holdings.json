@@ -3,18 +3,21 @@
     "scheme_name": "HDFC Flexi Cap Fund - Regular Plan - Growth",
     "units": 49.06,
     "amfi_code": "101762",
-    "category": "FLEXI"
+    "category": "FLEXI",
+    "confidence": 0.748
   },
   {
     "scheme_name": "Groww Silver ETF FOF - Regular Growth",
     "units": 22.437,
     "amfi_code": "153527",
-    "category": "ETF"
+    "category": "ETF",
+    "confidence": 1.0
   },
   {
     "scheme_name": "HDFC Focused Fund - Regular Plan - Growth",
     "units": 0.0,
     "amfi_code": "102760",
-    "category": "OTHER"
+    "category": "OTHER",
+    "confidence": 0.688
   }
 ]

@@ -1,2 +1,4 @@
 PORT=8000
 MONGODB_URI=mongodb+srv://ombichare:<password>@cluster2.bkt1son.mongodb.net
+
+for dependency of pdfplumber:python3 -m venv venv && ./venv/bin/pip install pdfplumber pypdf requests
