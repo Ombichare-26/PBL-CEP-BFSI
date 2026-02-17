@@ -1,47 +1,38 @@
-import "./Investmentform.Inputpage.css";
-
-export default function InvestmentForm({
-  amount,
-  duration,
-  expectedRoi,
-  onAmountChange,
-  onDurationChange,
-  onRoiChange
-}) {
+export default function InvestmentForm({ investmentData, setInvestmentData }) {
   return (
-    <div className="investment-form">
+    <div>
       <h3>Investment Details</h3>
 
-      <div className="form-group">
-        <label>Investment Amount (₹)</label>
-        
-        <input
-          type="number"
-          placeholder="e.g. 500000"
-          value={amount}
-          onChange={(e) => onAmountChange(e.target.value)}
-        />
-      </div>
+      <input
+        type="number"
+        placeholder="Investable Amount"
+        value={investmentData.amount}
+        onChange={(e) =>
+          setInvestmentData(prev => ({ ...prev, amount: e.target.value }))
+        }
+      />
 
-      <div className="form-group">
-        <label>Duration (Years)</label>
-        <input
-          type="number"
-          placeholder="e.g. 10"
-          value={duration}
-          onChange={(e) => onDurationChange(e.target.value)}
-        />
-      </div>
+      <br /><br />
 
-      <div className="form-group">
-        <label>Expected ROI (%)</label>
-        <input
-          type="number"
-          placeholder="e.g. 12"
-          value={expectedRoi}
-          onChange={(e) => onRoiChange(e.target.value)}
-        />
-      </div>
+      <input
+        type="number"
+        placeholder="Expected ROI (%)"
+        value={investmentData.roi}
+        onChange={(e) =>
+          setInvestmentData(prev => ({ ...prev, roi: e.target.value }))
+        }
+      />
+
+      <br /><br />
+
+      <input
+        type="number"
+        placeholder="Duration (months)"
+        value={investmentData.duration}
+        onChange={(e) =>
+          setInvestmentData(prev => ({ ...prev, duration: e.target.value }))
+        }
+      />
     </div>
   );
 }

@@ -16,11 +16,10 @@
 
 
 import express from "express";
-import { runPythonAndUploadPortfolio } from "../controllers/portfolio.controller.js";
-
+import { uploadPortfolioFromJSON }  from "../controllers/portfolio.controller.js";
 const router = express.Router();
 
 // POST /api/v1/portfolio → run test2.py, then read portfolio_holdings.json and upload to MongoDB
-router.post("/", runPythonAndUploadPortfolio);
+router.post("/", uploadPortfolioFromJSON);
 
 export default router;
