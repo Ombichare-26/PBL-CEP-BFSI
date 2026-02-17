@@ -47,9 +47,246 @@ body {
     cursor: pointer;
   }
   
-  .fund-details {
-    margin: 20px;
+  /* Fund Details Modal */
+  .fund-details-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
     padding: 20px;
-    background: #e2e8f0;
+  }
+
+  .fund-details-modal {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    max-width: 900px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+  }
+
+  .fund-details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .fund-details-header h2 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  .close-btn {
+    background: #f3f4f6;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: #6b7280;
+    transition: all 0.2s;
+  }
+
+  .close-btn:hover {
+    background: #e5e7eb;
+    color: #111827;
+  }
+
+  .fund-details-content {
+    padding: 24px;
+  }
+
+  .fund-price-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  .price-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .price-label {
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  .price-value {
+    font-size: 36px;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  .day-change {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+
+  .day-change.positive {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  .day-change.negative {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .change-label {
+    font-size: 14px;
+  }
+
+  .change-value {
+    font-size: 20px;
+  }
+
+  .amfi-code {
+    font-size: 12px;
+    color: #6b7280;
+    font-family: monospace;
+  }
+
+  .period-selector {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .period-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    background: #f3f4f6;
+    color: #374151;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+  }
+
+  .period-btn:hover {
+    background: #e5e7eb;
+  }
+
+  .period-btn.active {
+    background: #2563eb;
+    color: white;
+    border-color: #2563eb;
+  }
+
+  .graph-section {
+    margin-bottom: 32px;
+    padding: 20px;
+    background: #f9fafb;
+    border-radius: 8px;
+  }
+
+  .fund-graph-container {
+    width: 100%;
+  }
+
+  .chart-tooltip {
+    background: white;
+    padding: 12px;
+    border-radius: 6px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+  }
+
+  .tooltip-date {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 4px;
+  }
+
+  .tooltip-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  .loading,
+  .no-data,
+  .no-graph-data {
+    text-align: center;
+    padding: 40px;
+    color: #6b7280;
+    font-size: 14px;
+  }
+
+  .fund-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    padding-top: 24px;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: #f9fafb;
+    border-radius: 6px;
+  }
+
+  .info-label {
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  .info-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  @media (max-width: 768px) {
+    .fund-details-modal {
+      max-width: 100%;
+      margin: 10px;
+    }
+
+    .fund-details-header h2 {
+      font-size: 20px;
+    }
+
+    .price-value {
+      font-size: 28px;
+    }
+
+    .period-selector {
+      justify-content: center;
+    }
+
+    .fund-info {
+      grid-template-columns: 1fr;
+    }
   }
   

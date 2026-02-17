@@ -1,20 +1,26 @@
+const CATEGORIES = [
+  { code: "ALL", label: "All" },
+  { code: "SMALL", label: "Small Cap" },
+  { code: "FLEXI", label: "Flexi Cap" },
+  { code: "ETF", label: "ETF" },
+  { code: "OTHER", label: "Other" }
+];
+
 function CategoryButtons({ selected, onSelect }) {
-    const categories = ["Small Cap", "Flexi Cap", "ETF", "Other"];
-  
-    return (
-      <div className="category-buttons">
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            className={selected === cat ? "active" : ""}
-            onClick={() => onSelect(cat)}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-    );
-  }
+  return (
+    <div className="category-buttons">
+      {CATEGORIES.map(({ code, label }) => (
+        <button
+          key={code}
+          className={selected === code ? "active" : ""}
+          onClick={() => onSelect(code)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
   
   export default CategoryButtons;
   
