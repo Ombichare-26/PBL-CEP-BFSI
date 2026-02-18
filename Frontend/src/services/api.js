@@ -20,6 +20,11 @@ export async function uploadCASPdf(file) {
     body: formData
   });
 
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Failed to extract CAS: ${res.status} ${res.statusText}. ${errorText}`);
+  }
+
   return res.json();
 }
 
