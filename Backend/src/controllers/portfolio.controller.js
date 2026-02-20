@@ -125,3 +125,29 @@ export const uploadPortfolioFromJSON = async (req, res) => {
     });
   }
 };
+export const getPortfolioBySession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    const portfolio = await UserPortfolio.find({ session_id: sessionId });
+
+    if (!portfolio || portfolio.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Portfolio not found"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: portfolio
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching portfolio",
+      error: error.message
+    });
+  }
+};

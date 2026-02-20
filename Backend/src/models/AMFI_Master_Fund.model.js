@@ -44,4 +44,4 @@ const AMFIMasterSchema = new mongoose.Schema({
 
 },{timestamps: true});
 
-export default AMFIMaster = mongoose.model("AMFIMaster",AMFIMasterSchemaSchema);
+export default mongoose.model("AMFIMaster", AMFIMasterSchema);

@@ -7,6 +7,7 @@ import {
   saveInvestmentInput,
   savePortfolio
 } from "../services/api";
+import { useNavigate } from "react-router-dom";
 
 export default function Input() {
   // -------------------------
@@ -19,7 +20,7 @@ export default function Input() {
     roi: "",
     duration: ""
   });
-
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -63,6 +64,8 @@ export default function Input() {
         scheme_name: fund.scheme_name,
         units: fund.units,
         amfi_code: fund.amfi_code,
+        nav: fund.nav,                // ✅ ADD
+        current_value: fund.current_value,  // ✅ ADD
         category: fund.category
       }));
 
@@ -76,8 +79,12 @@ export default function Input() {
       // 5️⃣ Save portfolio
       await savePortfolio(sessionId, sanitizedFunds);
 
-      alert("Portfolio uploaded successfully 🚀");
+      // alert("Portfolio uploaded successfully 🚀");
+// Save session in localStorage (for PortfolioPage fallback)
+localStorage.setItem("chai_portfolio_session_id", sessionId);
 
+// Navigate to portfolio page
+navigate(`/portfolio?session_id=${sessionId}`);
     } catch (err) {
       console.error(err);
       setError(err.message || "Something went wrong. Please try again.");

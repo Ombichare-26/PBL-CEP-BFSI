@@ -39,4 +39,28 @@ const saveInvestmentInput = asyncHandler(async (req, res) => {
   );
 });
 
-export { saveInvestmentInput };
+const getInvestmentBySession = asyncHandler(async (req, res) => {
+  const { sessionId } = req.params;
+
+  if (!sessionId) {
+    throw new ApiError(400, "Session ID is required");
+  }
+
+  const investmentInput = await InvestmentInput.findOne({
+    session_id: sessionId
+  });
+
+  if (!investmentInput) {
+    throw new ApiError(404, "Investment input not found");
+  }
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      investmentInput,
+      "Investment input fetched successfully"
+    )
+  );
+});
+
+export { saveInvestmentInput, getInvestmentBySession };
