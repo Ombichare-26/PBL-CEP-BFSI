@@ -4,6 +4,7 @@
 // import { execFile } from "child_process";
 // import { promisify } from "util";
 import UserPortfolio from "../models/User_Portfolio.model.js";
+import { fetchAmfiNavMap } from "../utils/amfiNav.js";
 
 // const execFileAsync = promisify(execFile);
 // const backendRoot = process.cwd();
@@ -138,9 +139,23 @@ export const getPortfolioBySession = async (req, res) => {
       });
     }
 
+    // Fetch AMFI NAV once and enrich each fund with live NAV and current value
+    const amfiNavMap = await fetchAmfiNavMap();
+
+    const data = portfolio.map((doc) => {
+      const fund = doc.toObject ? doc.toObject() : { ...doc };
+      const amfiCode = fund.amfi_code;
+      if (amfiCode && amfiCode !== "NOT_FOUND" && amfiNavMap.has(amfiCode)) {
+        const { nav } = amfiNavMap.get(amfiCode);
+        fund.nav = nav;
+        fund.current_value = (Number(fund.units) || 0) * nav;
+      }
+      return fund;
+    });
+
     return res.status(200).json({
       success: true,
-      data: portfolio
+      data
     });
 
   } catch (error) {

@@ -1,16 +1,16 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import { fetchCurrentNav } from "../utils/amfiNav.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const AMFI_URL = "https://www.amfiindia.com/spages/NAVAll.txt";
 const MFAPI_BASE_URL = "https://api.mfapi.in"; // Indian Mutual Fund API
 
 /**
- * Parse NAV value safely
+ * Parse NAV value safely (used for MFapi response parsing)
  */
 function parseNav(value) {
   if (!value || !String(value).trim()) return 0;
@@ -18,50 +18,6 @@ function parseNav(value) {
     return parseFloat(String(value).trim().replace(/,/g, ""));
   } catch {
     return 0;
-  }
-}
-
-/**
- * Fetch current NAV from AMFI for a specific AMFI code
- */
-async function fetchCurrentNav(amfiCode) {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-    
-    const response = await fetch(AMFI_URL, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; FundTracker/1.0)"
-      }
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const text = await response.text();
-    const lines = text.split("\n");
-    
-    for (const line of lines) {
-      if (!line || line.startsWith("Scheme Code")) continue;
-      const parts = line.split(";");
-      if (parts.length < 5) continue;
-      
-      if (parts[0].trim() === amfiCode) {
-        return {
-          nav: parseNav(parts[4]),
-          schemeName: parts[3].trim(),
-          date: parts[5]?.trim() || new Date().toISOString().split("T")[0]
-        };
-      }
-    }
-    return null;
-  } catch (error) {
-    console.error("[fetchCurrentNav] Error:", error.message);
-    return null;
   }
 }
 

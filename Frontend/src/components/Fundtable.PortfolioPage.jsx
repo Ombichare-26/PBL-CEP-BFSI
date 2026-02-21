@@ -21,7 +21,10 @@ function FundTable({ funds, onFundClick }) {
         {funds.map((fund) => {
           const nav = fund.nav != null ? Number(fund.nav) : null;
           const units = fund.units != null ? Number(fund.units) : 0;
-          const currentValue = (nav != null && !Number.isNaN(nav) ? nav : 0) * units;
+          const currentValue =
+            fund.current_value != null && !Number.isNaN(Number(fund.current_value))
+              ? Number(fund.current_value)
+              : (nav != null && !Number.isNaN(nav) ? nav : 0) * units;
           return (
             <tr key={fund._id} onClick={() => onFundClick(fund)}>
               <td style={{ fontFamily: "monospace", fontSize: "13px" }}>
