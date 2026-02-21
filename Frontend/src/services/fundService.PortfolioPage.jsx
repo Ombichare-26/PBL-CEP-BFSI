@@ -19,9 +19,23 @@ export const getFundDetails = async (amfiCode) => {
  * @param {string} amfiCode - AMFI code of the fund
  * @param {string} period - One of: "1d", "1m", "3m", "1y", "5y"
  */
-export const getFundHistoricalNav = async (amfiCode, period = "1m") => {
-  const res = await axios.get(`${BASE_URL}/fund/${amfiCode}/historical`, {
-    params: { period }
-  });
-  return res.data;
-};
+// export const getFundHistoricalNav = async (amfiCode, period = "1m") => {
+//   const res = await axios.get(`${BASE_URL}/fund/${amfiCode}/historical`, {
+//     params: { period }
+//   });
+//   return res.data;
+// };
+
+const CAS_BASE = "http://localhost:9000";
+
+export async function getFundHistoricalNav(amfiCode, period) {
+  const res = await fetch(
+    `${CAS_BASE}/fund-history/${amfiCode}?period=${period}`
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch historical NAV");
+  }
+
+  return res.json();
+}
