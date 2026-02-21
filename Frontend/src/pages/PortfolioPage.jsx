@@ -86,7 +86,39 @@ function PortfolioPage() {
       console.error("Error fetching fund details:", error);
       setLiveData(null);
     }
+
   };
+
+// ---- Calculate Total Portfolio Value ----
+const totalPortfolioValue = funds.reduce((sum, fund) => {
+  return sum + (Number(fund.current_value) || 0);
+}, 0);
+// ---- Animated Counter State ----
+const [animatedTotal, setAnimatedTotal] = useState(0);
+
+useEffect(() => {
+  
+  const duration = 2000; // 2 seconds
+  const startTime = performance.now();
+
+  const animate = (currentTime) => {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+
+    const value = progress * totalPortfolioValue;
+    setAnimatedTotal(value);
+
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    }
+  };
+
+  if (totalPortfolioValue > 0) {
+
+    requestAnimationFrame(animate);
+  }
+
+}, [totalPortfolioValue]);
 
   if (!sessionId) {
     return (
@@ -104,7 +136,12 @@ function PortfolioPage() {
 
   return (
     <>
-      
+    {/* User Total Value of Funds */}
+      <div className="total-portfolio">
+  <h2>Total Portfolio Value : </h2>
+ <h1>₹ {animatedTotal.toLocaleString("en-IN")}</h1> 
+
+</div>
 
       {/* User Input Summary */}
       {userInput && <UserInputSummary data={userInput} />}
@@ -117,6 +154,9 @@ function PortfolioPage() {
           onSelect={setSelectedCategory}
         />
       </div>
+
+
+
 
       {/* Fund Table */}
       <FundTable
