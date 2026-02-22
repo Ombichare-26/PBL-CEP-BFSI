@@ -21,12 +21,17 @@ export { app }
 import sessionRouter from "./routes/session.routes.js";
 import investmentRouter from "./routes/investment.routes.js";
 import portfolioRouter from "./routes/portfolio.routes.js";
+import aiRoutes from "./routes/ai.routes.js";
 
 // routes declaration
 app.use(express.json());
 app.use("/api/v1/session", sessionRouter);
 app.use("/api/v1/investments", investmentRouter);
 app.use("/api/v1/portfolio", portfolioRouter);
+app.use("/api/v1/ai", aiRoutes);
+
+// middleware
+app.use(express.json());
 
 // Example:
 // http://localhost:8000/api/v1/session

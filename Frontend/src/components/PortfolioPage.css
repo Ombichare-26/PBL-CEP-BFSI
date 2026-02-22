@@ -306,3 +306,20 @@ body {
     font-weight: bold;
     color: #111;
   }
+
+  .info-icon {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #a5b4fc;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    cursor: help;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
