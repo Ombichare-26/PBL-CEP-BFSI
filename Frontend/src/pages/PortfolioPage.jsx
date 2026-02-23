@@ -287,9 +287,9 @@ useEffect(() => {
                     <span className="info-label">Verdict</span>
                     <span
                       className="info-value"
-                      style={getVerdictStyle(aiResult?.aiEvaluation?.verdict || aiResult.verdict)}
+                      style={getVerdictStyle(aiResult?.aiEvaluation?.verdict)}
                     >
-                      {formatVerdict(aiResult?.aiEvaluation?.verdict || aiResult.verdict)}
+                      {formatVerdict(aiResult?.aiEvaluation?.verdict)}
                     </span>
                   </div>
 
@@ -297,7 +297,7 @@ useEffect(() => {
                   <div className="info-row">
                     <span className="info-label">Summary</span>
                     <span className="info-value" style={{ whiteSpace: "pre-wrap" }}>
-                      {aiResult?.aiEvaluation?.summary || aiResult.summary || aiResult?.error || "—"}
+                      {aiResult?.aiEvaluation?.summary || aiResult?.error || "—"}
                     </span>
                   </div>
 
@@ -305,7 +305,7 @@ useEffect(() => {
                   <div className="info-row">
                     <span className="info-label">Suggested Direction</span>
                     <span className="info-value">
-                      {aiResult?.aiEvaluation?.suggestedDirection || aiResult.suggestedDirection || "—"}
+                      {aiResult?.aiEvaluation?.suggestedDirection || "—"}
                     </span>
                   </div>
 
