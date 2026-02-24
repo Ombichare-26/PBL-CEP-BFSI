@@ -308,7 +308,18 @@ useEffect(() => {
                       {aiResult?.aiEvaluation?.suggestedDirection || "—"}
                     </span>
                   </div>
-
+{/* Diversification Status */}
+{aiResult?.aiEvaluation?.diversificationStatus && (
+  <div className="info-row">
+    <span className="info-label">Diversification Status</span>
+    <span
+      className="info-value"
+      style={getDiversificationStyle(aiResult.aiEvaluation.diversificationStatus)}
+    >
+      {aiResult.aiEvaluation.diversificationStatus.replace(/_/g, " ")}
+    </span>
+  </div>
+)}
                   {/* Detailed Explanation */}
                   {aiResult?.aiEvaluation?.detailedExplanation && (
                     <div style={{ background: "#f9fafb", padding: 16, borderRadius: 8 }}>
@@ -321,6 +332,21 @@ useEffect(() => {
                       </div>
                     </div>
                   )}
+                  {/* Diversification Suggestions */}
+{aiResult?.aiEvaluation?.diversificationSuggestions?.length > 0 && (
+  <div style={{ background: "#f0f9ff", padding: 16, borderRadius: 8 }}>
+    <div style={{ fontWeight: 600, marginBottom: 10 }}>
+      Diversification Suggestions
+    </div>
+    <ul style={{ paddingLeft: 18, margin: 0 }}>
+      {aiResult.aiEvaluation.diversificationSuggestions.map((item, index) => (
+        <li key={index} style={{ marginBottom: 6 }}>
+          {item}
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
                 </div>
               )}
             </div>
@@ -349,7 +375,26 @@ const getVerdictStyle = (verdict) => {
       return {};
   }
 };
+const getDiversificationStyle = (status) => {
+  const baseStyle = {
+    padding: "4px 12px",
+    borderRadius: "9999px",
+    fontWeight: 600,
+    fontSize: "12px",
+    textTransform: "uppercase",
+  };
 
+  switch (status) {
+    case "WELL_DIVERSIFIED":
+      return { ...baseStyle, background: "#dcfce7", color: "#166534" };
+    case "OVERCONCENTRATED":
+      return { ...baseStyle, background: "#fee2e2", color: "#991b1b" };
+    case "UNDEREXPOSED":
+      return { ...baseStyle, background: "#fef9c3", color: "#854d0e" };
+    default:
+      return baseStyle;
+  }
+};
 const formatVerdict = (verdict) => {
   if (!verdict) return "—";
   return verdict.replace(/_/g, " ");
