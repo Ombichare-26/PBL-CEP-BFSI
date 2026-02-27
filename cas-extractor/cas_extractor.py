@@ -493,7 +493,7 @@ def fetch_amfi_data():
 # AMFI MATCHING ENGINE (ROBUST)
 # =========================================================
 
-def get_amfi_details(user_scheme, amfi_data, threshold=0.62):
+def get_amfi_details(user_scheme, amfi_data, threshold=0.50):
     user_norm = normalize(user_scheme)
     user_tokens = tokenize(user_scheme)
     user_plan = extract_plan(user_tokens)

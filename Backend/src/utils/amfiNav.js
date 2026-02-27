@@ -61,7 +61,7 @@ export async function fetchAmfiNavMap() {
  */
 export async function fetchCurrentNav(amfiCode) {
   const map = await fetchAmfiNavMap();
-  const entry = map.get(amfiCode);
+  const entry = map.get(String(amfiCode));
   if (!entry) return null;
   return {
     nav: entry.nav,

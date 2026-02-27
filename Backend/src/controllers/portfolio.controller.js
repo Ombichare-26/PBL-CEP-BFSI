@@ -142,17 +142,28 @@ export const getPortfolioBySession = async (req, res) => {
     // Fetch AMFI NAV once and enrich each fund with live NAV and current value
     const amfiNavMap = await fetchAmfiNavMap();
 
-    const data = portfolio.map((doc) => {
-      const fund = doc.toObject ? doc.toObject() : { ...doc };
-      const amfiCode = fund.amfi_code;
-      if (amfiCode && amfiCode !== "NOT_FOUND" && amfiNavMap.has(amfiCode)) {
-        const { nav } = amfiNavMap.get(amfiCode);
-        fund.nav = nav;
-        fund.current_value = (Number(fund.units) || 0) * nav;
-      }
-      return fund;
-    });
 
+const data = portfolio.map((doc) => {
+  const fund = doc.toObject ? doc.toObject() : { ...doc };
+
+  const rawCode = fund.amfi_code;
+  const key = String(rawCode || "").trim();
+
+
+  const navEntry = amfiNavMap.get(key);
+
+  if (navEntry) {
+    fund.nav = navEntry.nav;
+    fund.current_value = (Number(fund.units) || 0) * navEntry.nav;
+  } else {
+    fund.nav = 0;
+    fund.current_value = 0;
+  }
+
+  return fund;
+});
+// console.log("Checking AMFI Code:", amfiCode, typeof amfiCode);
+// console.log("Map has key:", amfiNavMap.has(String(amfiCode)));
     return res.status(200).json({
       success: true,
       data
