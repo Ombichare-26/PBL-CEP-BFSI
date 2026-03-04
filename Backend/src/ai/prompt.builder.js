@@ -63,6 +63,10 @@ ${(structuredFactors.contributions || [])
 
 
 return `
+STRICT MODE ACTIVATED.
+INPUT IS COMPLETE.
+DO NOT REQUEST ADDITIONAL DATA.
+PROCEED WITH EVALUATION.
 You are an expert portfolio strategist and diversification advisor for Indian mutual fund investments.
 
 The system's inferred risk (${inferredRisk}) is authoritative and must not be changed.
@@ -102,6 +106,21 @@ Your role is to:
 - Expected ROI: ${expectedRoi}%
 - Portfolio Allocation: ${JSON.stringify(categoryPercentages)}
 
+
+================ DECISION LOCKING INSTRUCTIONS ================
+
+Follow this decision sequence strictly:
+
+1. Evaluate diversificationStatus first.
+2. Lock diversificationStatus.
+3. Assign verdict ONLY from diversificationStatus.
+4. Lock verdict.
+5. Determine suggestedDirection based only on allocation structure.
+6. Ensure suggestedDirection does not contradict verdict rules.
+7. Do not revisit earlier decisions after locking them.
+
+This is a single-pass logical evaluation.
+Do not self-correct or reconsider after making a determination.
 ================ OUTPUT FORMAT (STRICT JSON ONLY) ================
 Return ONLY valid JSON:
 
@@ -125,4 +144,6 @@ Return ONLY valid JSON:
 
 Do not include markdown.
 Do not include explanation outside JSON.
+The response MUST begin with '{' and end with '}'.
+No characters before or after JSON.
 `;}

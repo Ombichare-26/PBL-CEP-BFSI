@@ -8,7 +8,7 @@ import {
   savePortfolio
 } from "../services/api";
 import { useNavigate } from "react-router-dom";
-
+import Loader from "../components/Loader";
 export default function Input() {
   // -------------------------
   // State
@@ -98,6 +98,8 @@ navigate(`/portfolio?session_id=${sessionId}`);
   // -------------------------
   return (
     <>
+    {loading && <Loader />} 
+
       <CasUpload setPdfFile={setPdfFile} />
 
       <InvestmentForm
