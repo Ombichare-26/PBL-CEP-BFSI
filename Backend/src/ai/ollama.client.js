@@ -45,8 +45,14 @@ ${userPrompt}
     const end = text.lastIndexOf("}");
     if (start !== -1 && end !== -1 && end > start) {
       const possibleJson = text.slice(start, end + 1);
-      return JSON.parse(possibleJson);
+      try {
+        return JSON.parse(possibleJson);
+      } catch (innerError) {
+        throw new Error(
+          `AI returned invalid JSON. ${(innerError && innerError.message) || ""} Raw: ${text.slice(0, 400)}`
+        );
+      }
     }
-    throw new Error(`AI returned non-JSON output: ${text.slice(0, 200)}`);
+    throw new Error(`AI returned non-JSON output: ${text.slice(0, 400)}`);
   }
 }

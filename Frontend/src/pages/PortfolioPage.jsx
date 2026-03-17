@@ -207,146 +207,155 @@ useEffect(() => {
         <div className="fund-details-overlay">
           <div className="fund-details-modal" style={{ maxWidth: 700 }}>
             <div className="fund-details-header">
-              <h2>Choose Recommendation Style</h2>
+              <h2>AI Recommendation (Based on Your Inputs)</h2>
               <button className="close-btn" onClick={() => setShowAiModal(false)}>×</button>
             </div>
             <div className="fund-details-content">
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
-                  {[
-                    {
-                      label: "Conservative",
-                      description: "Focuses on capital preservation with lower risk and modest returns. Suitable for investors with a low risk tolerance."
-                    },
-                    {
-                      label: "Balanced",
-                      description: "Aims for a mix of safety and growth, with moderate risk and returns. Suitable for investors with a medium risk tolerance."
-                    },
-                    {
-                      label: "Aggressive",
-                      description: "Seeks high growth potential, accepting higher risk and market volatility. Suitable for investors with a high risk tolerance."
-                    }
-                  ].map(({ label, description }) => (
-                    <div key={label} style={{ position: "relative" }}>
-                      <button
-                        disabled={aiLoading}
-                        onClick={async () => {
-                          if (!userInput) return;
-                          setAiLoading(true);
-                          setAiResult(null);
-                          try {
-                            const percentages = allocationData.reduce((acc, item) => {
-                              const key = item.name.split(" ")[0].toUpperCase();
-                              acc[key] = Math.round(item.value);
-                              return acc;
-                            }, {});
+              <div style={{ marginBottom: 16 }}>
+                <button
+                  disabled={aiLoading}
+                  onClick={async () => {
+                    if (!userInput) return;
+                    setAiLoading(true);
+                    setAiResult(null);
+                    try {
+                      const percentages = allocationData.reduce((acc, item) => {
+                        const key = item.name.split(" ")[0].toUpperCase();
+                        acc[key] = Math.round(item.value);
+                        return acc;
+                      }, {});
 
-                            const payload = {
-                              categoryPercentages: percentages,
-                              durationMonths: userInput.duration_months,
-                              investmentAmount: userInput.investable_amount,
-                              expectedRoi: userInput.expected_roi,
-                              userSelectedDirection: label
-                            };
-                            const res = await evaluateChoice(payload);
-                            setAiResult(res);
-                          } catch (e) {
-                            console.error("AI evaluation failed", e);
-                            const message =
-                              e?.response?.data?.error ||
-                              e?.message ||
-                              "Failed to fetch recommendation";
-                            setAiResult({ error: message });
-                          } finally {
-                            setAiLoading(false);
-                          }
-                        }}
-                        style={{
-                          padding: "10px 16px",
-                          borderRadius: 8,
-                          border: "1px solid #e5e7eb",
-                          background: "#f3f4f6",
-                          cursor: "pointer",
-                          width: "100%"
-                        }}
-                      >
-                        {label}
-                      </button>
-                      <div className="info-icon" title={description}>
-                        &#8505;
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                      const payload = {
+                        categoryPercentages: percentages,
+                        durationMonths: userInput.duration_months,
+                        investmentAmount: userInput.investable_amount,
+                        expectedRoi: userInput.expected_roi,
+                      };
+                      const res = await evaluateChoice(payload);
+                      setAiResult(res);
+                    } catch (e) {
+                      console.error("AI evaluation failed", e);
+                      const message =
+                        e?.response?.data?.error ||
+                        e?.message ||
+                        "Failed to fetch recommendation";
+                      setAiResult({ error: message });
+                    } finally {
+                      setAiLoading(false);
+                    }
+                  }}
+                  style={{
+                    padding: "10px 16px",
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    background: "#f3f4f6",
+                    cursor: "pointer",
+                    width: "100%",
+                  }}
+                >
+                  Generate Recommendation
+                </button>
+              </div>
 
               {/* Result */}
               {aiLoading && <div className="loading">Fetching AI recommendation...</div>}
               {aiResult && !aiLoading && (
-                <div style={{ display: "grid", gap: 16, paddingTop: 16 }}>
-                  {/* Verdict */}
-                  <div className="info-row">
-                    <span className="info-label">Verdict</span>
-                    <span
-                      className="info-value"
-                      style={getVerdictStyle(aiResult?.aiEvaluation?.verdict)}
-                    >
-                      {formatVerdict(aiResult?.aiEvaluation?.verdict)}
-                    </span>
-                  </div>
-
-                  {/* Summary */}
-                  <div className="info-row">
-                    <span className="info-label">Summary</span>
-                    <span className="info-value" style={{ whiteSpace: "pre-wrap" }}>
-                      {aiResult?.aiEvaluation?.summary || aiResult?.error || "—"}
-                    </span>
-                  </div>
-
-                  {/* Suggested Direction */}
-                  <div className="info-row">
-                    <span className="info-label">Suggested Direction</span>
-                    <span className="info-value">
-                      {aiResult?.aiEvaluation?.suggestedDirection || "—"}
-                    </span>
-                  </div>
-{/* Diversification Status */}
-{aiResult?.aiEvaluation?.diversificationStatus && (
-  <div className="info-row">
-    <span className="info-label">Diversification Status</span>
-    <span
-      className="info-value"
-      style={getDiversificationStyle(aiResult.aiEvaluation.diversificationStatus)}
-    >
-      {aiResult.aiEvaluation.diversificationStatus.replace(/_/g, " ")}
-    </span>
-  </div>
-)}
-                  {/* Detailed Explanation */}
-                  {aiResult?.aiEvaluation?.detailedExplanation && (
-                    <div style={{ background: "#f9fafb", padding: 16, borderRadius: 8 }}>
-                      <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 16 }}>Detailed Explanation</div>
-                      <div style={{ fontSize: 14, color: "#374151", display: "grid", gap: 12 }}>
-                        <div><strong>Allocation:</strong> {aiResult.aiEvaluation.detailedExplanation.allocationAnalysis}</div>
-                        <div><strong>Risk vs Direction:</strong> {aiResult.aiEvaluation.detailedExplanation.riskVsDirection}</div>
-                        <div><strong>Duration Impact:</strong> {formatDuration(aiResult.aiEvaluation.detailedExplanation.durationImpact)}</div>
-                        <div><strong>ROI Expectation:</strong> {aiResult.aiEvaluation.detailedExplanation.roiExpectationCheck}</div>
-                      </div>
+                <div className="ai-result">
+                  {aiResult?.error && (
+                    <div className="ai-alert ai-alert--error">
+                      {aiResult.error}
                     </div>
                   )}
-                  {/* Diversification Suggestions */}
-{aiResult?.aiEvaluation?.diversificationSuggestions?.length > 0 && (
-  <div style={{ background: "#f0f9ff", padding: 16, borderRadius: 8 }}>
-    <div style={{ fontWeight: 600, marginBottom: 10 }}>
-      Diversification Suggestions
-    </div>
-    <ul style={{ paddingLeft: 18, margin: 0 }}>
-      {aiResult.aiEvaluation.diversificationSuggestions.map((item, index) => (
-        <li key={index} style={{ marginBottom: 6 }}>
-          {item}
-        </li>
-      ))}
-    </ul>
-  </div>
-)}
+
+                  {!!aiResult?.aiEvaluation && (
+                    <>
+                      <div className="ai-badges">
+                        <span className="ai-badge ai-badge--neutral">
+                          Recommended: {formatEnum(aiResult.aiEvaluation.recommendedDirection) || "—"}
+                        </span>
+                        {!!aiResult.aiEvaluation.diversificationStatus && (
+                          <span
+                            className="ai-badge"
+                            style={getDiversificationStyle(aiResult.aiEvaluation.diversificationStatus)}
+                          >
+                            {formatEnum(aiResult.aiEvaluation.diversificationStatus)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="ai-card">
+                        <div className="ai-card-title">Summary</div>
+                        <div className="ai-card-text">
+                          {aiResult.aiEvaluation.summary || "—"}
+                        </div>
+                      </div>
+
+                      {(aiResult.aiEvaluation.currentAllocation ||
+                        aiResult.aiEvaluation.targetAllocation ||
+                        aiResult.aiEvaluation.allocationDiff) && (
+                        <div className="ai-card">
+                          <div className="ai-card-title">Allocation Plan</div>
+                          <div className="ai-table-wrap">
+                            <table className="ai-table">
+                              <thead>
+                                <tr>
+                                  <th>Category</th>
+                                  <th>Current</th>
+                                  <th>Target</th>
+                                  <th>Change</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {["ETF", "FLEXI", "SMALL"].map((key) => {
+                                  const current = aiResult.aiEvaluation.currentAllocation?.[key];
+                                  const target = aiResult.aiEvaluation.targetAllocation?.[key];
+                                  const diff = aiResult.aiEvaluation.allocationDiff?.[key];
+                                  const diffNum = Number(diff);
+                                  const diffClass =
+                                    Number.isFinite(diffNum) && diffNum !== 0
+                                      ? diffNum > 0
+                                        ? "ai-diff ai-diff--pos"
+                                        : "ai-diff ai-diff--neg"
+                                      : "ai-diff";
+
+                                  return (
+                                    <tr key={key}>
+                                      <td className="ai-td-key">{key}</td>
+                                      <td>{formatPct(current)}</td>
+                                      <td>{formatPct(target)}</td>
+                                      <td className={diffClass}>{formatDiffPct(diff)}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {!!aiResult.aiEvaluation.detailedExplanation?.targetAllocationReasoning && (
+                        <div className="ai-card ai-card--soft">
+                          <div className="ai-card-title">Why This Target Allocation?</div>
+                          <div className="ai-card-text ai-card-text--mono">
+                            {aiResult.aiEvaluation.detailedExplanation.targetAllocationReasoning}
+                          </div>
+                        </div>
+                      )}
+
+                      {aiResult.aiEvaluation.improvementSteps?.length > 0 && (
+                        <div className="ai-card">
+                          <div className="ai-card-title">Next Steps</div>
+                          <ol className="ai-steps">
+                            {aiResult.aiEvaluation.improvementSteps.map((item, index) => (
+                              <li key={index} className="ai-step">
+                                {item}
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -358,23 +367,6 @@ useEffect(() => {
 }
 
 // Helper functions for styling and formatting
-const getVerdictStyle = (verdict) => {
-  const baseStyle = {
-    padding: "4px 12px",
-    borderRadius: "9999px",
-    fontWeight: 600,
-    fontSize: "12px",
-    textTransform: "uppercase",
-  };
-  switch (verdict) {
-    case "RIGHT_CHOICE":
-      return { ...baseStyle, background: "#dcfce7", color: "#166534" };
-    case "WRONG_CHOICE":
-      return { ...baseStyle, background: "#fee2e2", color: "#991b1b" };
-    default:
-      return {};
-  }
-};
 const getDiversificationStyle = (status) => {
   const baseStyle = {
     padding: "4px 12px",
@@ -395,19 +387,24 @@ const getDiversificationStyle = (status) => {
       return baseStyle;
   }
 };
-const formatVerdict = (verdict) => {
-  if (!verdict) return "—";
-  return verdict.replace(/_/g, " ");
-};
 
-const formatDuration = (durationText) => {
-  if (!durationText) return "";
-  const match = durationText.match(/(\d+\.?\d*)/);
-  if (match) {
-    const years = parseFloat(match[0]);
-    return durationText.replace(match[0], years.toFixed(1));
-  }
-  return durationText;
-};
+function formatEnum(value) {
+  if (!value) return "";
+  return String(value).replace(/_/g, " ");
+}
+
+function formatPct(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return `${Math.round(n)}%`;
+}
+
+function formatDiffPct(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  if (n === 0) return "0%";
+  const sign = n > 0 ? "+" : "";
+  return `${sign}${Math.round(n)}%`;
+}
 
 export default PortfolioPage;

@@ -323,3 +323,139 @@ body {
     cursor: help;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   }
+
+  .ai-result {
+    display: grid;
+    gap: 14px;
+    padding-top: 12px;
+  }
+
+  .ai-badges {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .ai-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    color: #111827;
+    text-transform: uppercase;
+  }
+
+  .ai-badge--neutral {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+  }
+
+  .ai-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 14px;
+  }
+
+  .ai-card--soft {
+    background: #f9fafb;
+  }
+
+  .ai-card-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 8px;
+  }
+
+  .ai-card-text {
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+
+  .ai-card-text--mono {
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  }
+
+  .ai-table-wrap {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+  }
+
+  .ai-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .ai-table th {
+    text-align: left;
+    background: #f3f4f6;
+    color: #111827;
+    font-weight: 700;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+  }
+
+  .ai-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f3f4f6;
+    color: #374151;
+    white-space: nowrap;
+  }
+
+  .ai-td-key {
+    font-weight: 700;
+    color: #111827;
+  }
+
+  .ai-diff {
+    font-weight: 700;
+  }
+
+  .ai-diff--pos {
+    color: #166534;
+  }
+
+  .ai-diff--neg {
+    color: #991b1b;
+  }
+
+  .ai-steps {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 8px;
+    color: #374151;
+    font-size: 14px;
+  }
+
+  .ai-step {
+    line-height: 1.4;
+  }
+
+  .ai-alert {
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    border: 1px solid #e5e7eb;
+  }
+
+  .ai-alert--error {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #fecaca;
+  }
