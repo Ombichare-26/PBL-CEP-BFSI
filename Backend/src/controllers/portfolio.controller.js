@@ -176,4 +176,5 @@ const data = portfolio.map((doc) => {
       error: error.message
     });
   }
+  
 };
