@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import UserInputSummary from "../components/UserInputSummary.PortfolioPage";
 import AllocationPieChart from "../components/AllocationPieChart.PortfolioPage";
 import CategoryButtons from "../components/Categorybuttons.PortfolioPage";
@@ -11,8 +11,10 @@ import { evaluateChoice } from "../services/aiService.js";
 import "../components/PortfolioPage.css";
 
 const SESSION_KEY = "chai_portfolio_session_id";
+const CHAT_CONTEXT_KEY = "chai_ai_chat_context";
 
 function PortfolioPage() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionIdFromUrl = searchParams.get("session_id");
   const sessionIdFromStorage = typeof window !== "undefined" ? localStorage.getItem(SESSION_KEY) : null;
@@ -28,6 +30,28 @@ function PortfolioPage() {
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState(null);
+
+  const openAiChatbot = () => {
+    if (!aiResult?.aiEvaluation) return;
+    const planningContext = {
+      durationMonths:
+        aiResult?.inputs?.durationMonths ?? Number(userInput?.duration_months) ?? 0,
+      expectedRoi:
+        aiResult?.inputs?.expectedRoi ?? Number(userInput?.expected_roi) ?? 0,
+      investmentAmount:
+        aiResult?.inputs?.investmentAmount ?? Number(userInput?.investable_amount) ?? 0,
+      roiFeasibility: aiResult?.aiEvaluation?.goalAssessment?.roiFeasibility || "",
+    };
+    const context = {
+      recommendation: aiResult.aiEvaluation,
+      planningContext,
+      sessionId,
+    };
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(CHAT_CONTEXT_KEY, JSON.stringify(context));
+    }
+    navigate("/ai-chat", { state: context });
+  };
 
   useEffect(() => {
     if (!sessionId) return;
@@ -354,6 +378,35 @@ useEffect(() => {
                           </ol>
                         </div>
                       )}
+
+                      <div className="ai-card" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        <button
+                          onClick={() => setShowAiModal(false)}
+                          style={{
+                            padding: "10px 16px",
+                            borderRadius: 8,
+                            border: "1px solid #16a34a",
+                            background: "#16a34a",
+                            color: "white",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Show Me Funds
+                        </button>
+                        <button
+                          onClick={openAiChatbot}
+                          style={{
+                            padding: "10px 16px",
+                            borderRadius: 8,
+                            border: "1px solid #2563eb",
+                            background: "#2563eb",
+                            color: "white",
+                            cursor: "pointer",
+                          }}
+                        >
+                          AI Chatbot
+                        </button>
+                      </div>
                     </>
                   )}
                 </div>

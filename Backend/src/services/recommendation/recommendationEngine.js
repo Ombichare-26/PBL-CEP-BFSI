@@ -1,8 +1,8 @@
-import { inferPortfolioRisk } from "./riskInference.js";
+import {
+  classifyRiskFromScore,
+  computeRiskScoreDetails,
+} from "./riskInference.js";
 import { CATEGORY_FACTORS } from "./factorConfig.js";
-import { FACTOR_WEIGHTS } from "./weights.js";
-import { getDurationMultiplier } from "./durationAdjuster.js";
-import { getAmountPenalty } from "./amountAdjuster.js";
 import { evaluateDirectionWithAI } from "./aiDirectionEvaluator.js";
 
 function clampDirectionByDuration(goalDirection, durationMonths) {
@@ -151,42 +151,18 @@ export async function analyzePortfolio({
   expectedRoi,
 }) {
   // 1️⃣ Rule-based inference (authoritative)
-  const inferredRisk = inferPortfolioRisk({
+  const scoreDetails = computeRiskScoreDetails({
     categoryPercentages,
     durationMonths,
     investmentAmount,
   });
+  const inferredRisk = classifyRiskFromScore(scoreDetails.finalScore);
 
   const recommendedDirection = getRecommendedDirection({
     currentRisk: inferredRisk,
     durationMonths,
     expectedRoi,
   });
-
-  // Build structured factor breakdown for transparency to LLM
-  const breakdown = [];
-  let rawScore = 0;
-  for (const [category, pctVal] of Object.entries(categoryPercentages || {})) {
-    const factors = CATEGORY_FACTORS[category];
-    if (!factors) continue;
-    const pct = Number(pctVal) / 100;
-    const weightedBase =
-      factors.risk * FACTOR_WEIGHTS.risk +
-      factors.volatility * FACTOR_WEIGHTS.volatility +
-      factors.stability * FACTOR_WEIGHTS.stability;
-    const contribution = weightedBase * (isNaN(pct) ? 0 : pct);
-    rawScore += contribution;
-    breakdown.push({
-      category,
-      percentage: Number(pctVal) || 0,
-      factors,
-      weightedBase: Number(weightedBase.toFixed(3)),
-      contribution: Number(contribution.toFixed(3)),
-    });
-  }
-  const durationMultiplier = getDurationMultiplier(Number(durationMonths)) ?? 1;
-  const amountPenalty = getAmountPenalty(Number(investmentAmount)) ?? 0;
-  const finalScore = Number((rawScore * durationMultiplier - amountPenalty).toFixed(3));
 
   // 2️⃣ AI evaluation (judgment + explanation)
   const targetAllocation = buildTargetAllocation({
@@ -218,13 +194,14 @@ export async function analyzePortfolio({
     investmentAmount,
     expectedRoi,
     structuredFactors: {
-      factorWeights: FACTOR_WEIGHTS,
+      factorWeights: scoreDetails.factorWeights,
       categoryFactors: CATEGORY_FACTORS,
-      rawScore: Number(rawScore.toFixed(3)),
-      durationMultiplier,
-      amountPenalty,
-      finalScore,
-      contributions: breakdown,
+      rawScore: scoreDetails.rawScore,
+      durationMultiplier: scoreDetails.durationMultiplier,
+      amountPenalty: scoreDetails.amountPenalty,
+      finalScore: scoreDetails.finalScore,
+      contributions: scoreDetails.contributions,
+      ignoredCategories: scoreDetails.ignoredCategories,
     },
     recommendationContext: {
       recommendedDirection,
@@ -248,12 +225,13 @@ export async function analyzePortfolio({
       expectedRoi,
     },
     factors: {
-      factorWeights: FACTOR_WEIGHTS,
-      rawScore: Number(rawScore.toFixed(3)),
-      durationMultiplier,
-      amountPenalty,
-      finalScore,
-      contributions: breakdown,
+      factorWeights: scoreDetails.factorWeights,
+      rawScore: scoreDetails.rawScore,
+      durationMultiplier: scoreDetails.durationMultiplier,
+      amountPenalty: scoreDetails.amountPenalty,
+      finalScore: scoreDetails.finalScore,
+      contributions: scoreDetails.contributions,
+      ignoredCategories: scoreDetails.ignoredCategories,
     },
   };
 }

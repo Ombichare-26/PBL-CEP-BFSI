@@ -15,6 +15,7 @@ System Factors (for transparency):
 - Duration Multiplier: ${structuredFactors.durationMultiplier}
 - Amount Penalty: ${structuredFactors.amountPenalty}
 - Final Score: ${structuredFactors.finalScore}
+- Ignored Categories (no factor model): ${JSON.stringify(structuredFactors.ignoredCategories || [])}
 - Contributions:
 ${(structuredFactors.contributions || [])
   .map(

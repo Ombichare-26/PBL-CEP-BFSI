@@ -7,3 +7,7 @@ export const evaluateChoice = async (payload) => {
   return res.data;
 };
 
+export const chatRecommendation = async (payload) => {
+  const res = await axios.post(`${BASE_URL}/ai/recommendation-chat`, payload);
+  return res.data;
+};
