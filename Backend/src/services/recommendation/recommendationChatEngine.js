@@ -46,6 +46,66 @@ function normalizeAllocation(allocation = {}) {
   return { ETF: etf, FLEXI: flexi, SMALL: small };
 }
 
+function allocationsEqual(a = {}, b = {}) {
+  return (
+    toNumber(a.ETF) === toNumber(b.ETF) &&
+    toNumber(a.FLEXI) === toNumber(b.FLEXI) &&
+    toNumber(a.SMALL) === toNumber(b.SMALL)
+  );
+}
+
+function isExplicitAllocationChangeRequest(message) {
+  const m = String(message || "").toLowerCase();
+  const changeVerb =
+    /\b(change|chnage|chage|modify|rebalance|re-?allocate|reallocate|adjust|increase|decrease|reduce|raise|lower|shift|move|update)\b/.test(
+      m
+    );
+  const allocationContext =
+    /\b(allocation|portfolio|mix|weight|weights|etf|flexi|small|small cap|%)\b/.test(m);
+  const intentPhrase =
+    /\b(can you|please|plz|accordingly|as per|based on|considering)\b/.test(m);
+  return (changeVerb && allocationContext) || (allocationContext && intentPhrase && m.includes("change"));
+}
+
+function buildRuleBasedAllocationAdjustment(baseTargetAllocation = {}, planningContext = {}, message = "") {
+  const base = normalizeAllocation(baseTargetAllocation);
+  const p = buildPlanningContext({}, planningContext);
+  const m = String(message || "").toLowerCase();
+
+  let etf = base.ETF;
+  let flexi = base.FLEXI;
+  let small = base.SMALL;
+
+  const wantsGrowth =
+    /\b(growth|aggressive|higher return|more return|more growth|high growth|increase return)\b/.test(
+      m
+    );
+  const wantsSafety =
+    /\b(safer|safety|safe|less risk|low risk|conservative|capital preservation|stable)\b/.test(
+      m
+    );
+
+  if (wantsGrowth && p.durationMonths >= 24) {
+    const shift = p.durationMonths >= 60 ? 10 : p.durationMonths >= 36 ? 8 : 5;
+    const takeFromEtf = Math.min(etf - 25, shift);
+    if (takeFromEtf > 0) {
+      etf -= takeFromEtf;
+      const smallBoost = Math.round(takeFromEtf * 0.65);
+      small += smallBoost;
+      flexi += takeFromEtf - smallBoost;
+    }
+  } else if (wantsSafety) {
+    const shift = 6;
+    const takeFromSmall = Math.min(small, Math.round(shift * 0.6));
+    const takeFromFlexi = Math.min(flexi - 15, shift - takeFromSmall);
+    etf += Math.max(0, takeFromSmall) + Math.max(0, takeFromFlexi);
+    small -= Math.max(0, takeFromSmall);
+    flexi -= Math.max(0, takeFromFlexi);
+  }
+
+  return normalizeAllocation({ ETF: etf, FLEXI: flexi, SMALL: small });
+}
+
 function extractJsonFromText(text) {
   const raw = String(text || "").trim();
   if (!raw) return null;
@@ -112,10 +172,37 @@ function buildFallbackResponse(baseRecommendation, planningContext, userMessage)
   const targetAllocation = normalizeAllocation(baseRecommendation?.targetAllocation || {});
   const recommendedDirection = normalizeDirection(baseRecommendation?.recommendedDirection);
   const p = buildPlanningContext(baseRecommendation, planningContext);
+  const currentAllocation = normalizeAllocation(baseRecommendation?.currentAllocation || {});
+  const asked = String(userMessage || "").toLowerCase();
+
+  const delta = {
+    ETF: targetAllocation.ETF - toNumber(currentAllocation.ETF),
+    FLEXI: targetAllocation.FLEXI - toNumber(currentAllocation.FLEXI),
+    SMALL: targetAllocation.SMALL - toNumber(currentAllocation.SMALL),
+  };
+
+  let interactiveReply = `Based on your ${p.durationMonths}-month horizon and ${p.expectedRoi}% expected ROI, this mix keeps risk controlled while still allowing growth.`;
+
+  if (asked.includes("small")) {
+    interactiveReply =
+      `Small Cap is kept at ${targetAllocation.SMALL}% because your horizon (${p.durationMonths} months) can absorb some volatility, but not at an aggressive level. ` +
+      `The ${targetAllocation.SMALL}% allocation adds growth potential while ETF (${targetAllocation.ETF}%) and FLEXI (${targetAllocation.FLEXI}%) provide stability and diversification.`;
+  } else if (asked.includes("etf")) {
+    interactiveReply =
+      `ETF remains the anchor at ${targetAllocation.ETF}% to control volatility for your expected ROI and timeline. ` +
+      `Compared to current allocation, ETF adjustment is ${delta.ETF > 0 ? `+${delta.ETF}%` : `${delta.ETF}%`} to keep the plan aligned with feasibility.`;
+  } else if (asked.includes("flexi")) {
+    interactiveReply =
+      `FLEXI at ${targetAllocation.FLEXI}% helps balance stability and growth between ETF and Small Cap. ` +
+      `This makes the portfolio less concentrated and improves diversification quality for your target ROI path.`;
+  } else if (asked.includes("why") || asked.includes("explain")) {
+    interactiveReply =
+      `This allocation is chosen from your inputs, not fixed defaults: duration ${p.durationMonths} months, ROI expectation ${p.expectedRoi}%, and risk direction ${recommendedDirection}. ` +
+      `The split ETF ${targetAllocation.ETF}%, FLEXI ${targetAllocation.FLEXI}%, SMALL ${targetAllocation.SMALL}% is designed to keep ROI feasibility realistic while avoiding over-concentration.`;
+  }
 
   return {
-    reply:
-      "I considered your constraints with ROI, time horizon, and investable amount. The final recommendation below reflects feasibility and diversification balance.",
+    reply: interactiveReply,
     finalRecommendation: {
       recommendedDirection,
       summary:
@@ -175,6 +262,12 @@ Quality requirements:
 5. finalRecommendation.targetAllocation must have ETF/FLEXI/SMALL and sum to 100.
 6. Do not suggest specific fund names.
 7. Keep advice actionable and coherent with conversation.
+8. Directly answer the user's latest question in the first 1-2 lines of "reply".
+9. Do not repeat boilerplate phrasing from earlier turns.
+10. If user asks "why X%", explain using current-vs-target and risk/feasibility logic.
+11. Do NOT change allocation for enquiry-only questions.
+12. If user explicitly asks to change allocation, treat it as approval and update allocation in the same reply.
+13. For explicit change requests, explain what changed and why.
 
 Return strict JSON only:
 {
@@ -201,7 +294,12 @@ export async function chatOnRecommendation({
   planningContext,
   chatHistory,
   userMessage,
+  pendingProposal,
 }) {
+  const baseTargetAllocation = normalizeAllocation(baseRecommendation?.targetAllocation || {});
+  const baseDirection = normalizeDirection(baseRecommendation?.recommendedDirection);
+  const wantsChange = isExplicitAllocationChangeRequest(userMessage);
+
   const prompt = buildChatPrompt({
     baseRecommendation,
     planningContext,
@@ -217,7 +315,11 @@ export async function chatOnRecommendation({
       body: JSON.stringify({
         model: "llama3:8b",
         prompt,
+        format: "json",
         stream: false,
+        options: {
+          temperature: 0.55,
+        },
       }),
     });
   } catch (_error) {
@@ -232,15 +334,59 @@ export async function chatOnRecommendation({
   const parsed = extractJsonFromText(data?.response);
 
   if (!parsed || typeof parsed !== "object") {
-    return buildFallbackResponse(baseRecommendation, planningContext, userMessage);
+    const fallback = buildFallbackResponse(baseRecommendation, planningContext, userMessage);
+    const heuristicTargetAllocation = buildRuleBasedAllocationAdjustment(
+      baseTargetAllocation,
+      planningContext,
+      userMessage
+    );
+    const applyOnFallback = wantsChange && !allocationsEqual(heuristicTargetAllocation, baseTargetAllocation);
+    return {
+      ...fallback,
+      reply: applyOnFallback
+        ? `Updated as requested. New target allocation is ETF ${heuristicTargetAllocation.ETF}%, FLEXI ${heuristicTargetAllocation.FLEXI}%, SMALL ${heuristicTargetAllocation.SMALL}%. ${fallback.reply}`
+        : fallback.reply,
+      finalRecommendation: {
+        ...fallback.finalRecommendation,
+        targetAllocation: applyOnFallback
+          ? heuristicTargetAllocation
+          : fallback.finalRecommendation.targetAllocation,
+        summary: applyOnFallback
+          ? `Final recommendation updated for your latest request. Target allocation is ETF ${heuristicTargetAllocation.ETF}%, FLEXI ${heuristicTargetAllocation.FLEXI}%, SMALL ${heuristicTargetAllocation.SMALL}%.`
+          : fallback.finalRecommendation.summary,
+      },
+      changeControl: {
+        status: applyOnFallback ? "APPLIED" : "NONE",
+        approvalRequired: false,
+        proposedTargetAllocation: null,
+      },
+    };
   }
 
   const fallback = buildFallbackResponse(baseRecommendation, planningContext, userMessage);
   const finalRecommendation = parsed.finalRecommendation || {};
   const p = buildPlanningContext(baseRecommendation, planningContext);
+  const modelTargetAllocation = normalizeAllocation(
+    finalRecommendation.targetAllocation || fallback.finalRecommendation.targetAllocation
+  );
+  const heuristicTargetAllocation = buildRuleBasedAllocationAdjustment(
+    baseTargetAllocation,
+    planningContext,
+    userMessage
+  );
+  const chosenTargetAllocation = wantsChange
+    ? allocationsEqual(modelTargetAllocation, baseTargetAllocation)
+      ? heuristicTargetAllocation
+      : modelTargetAllocation
+    : baseTargetAllocation;
+  const allocationChanged = !allocationsEqual(chosenTargetAllocation, baseTargetAllocation);
+  const replyPrefix =
+    wantsChange && allocationChanged
+      ? `Updated as requested. New target allocation is ETF ${chosenTargetAllocation.ETF}%, FLEXI ${chosenTargetAllocation.FLEXI}%, SMALL ${chosenTargetAllocation.SMALL}%. `
+      : "";
 
   return {
-    reply: String(parsed.reply || fallback.reply),
+    reply: `${replyPrefix}${String(parsed.reply || fallback.reply)}`.trim(),
     analysis: {
       roiFeasibility: normalizeRoiFeasibility(
         parsed?.analysis?.roiFeasibility,
@@ -249,15 +395,15 @@ export async function chatOnRecommendation({
       durationComment: String(parsed?.analysis?.durationComment || ""),
       riskTradeoff: String(parsed?.analysis?.riskTradeoff || ""),
     },
+    changeControl: {
+      status: wantsChange && allocationChanged ? "APPLIED" : "NONE",
+      approvalRequired: false,
+      proposedTargetAllocation: null,
+    },
     finalRecommendation: {
-      recommendedDirection: normalizeDirection(
-        finalRecommendation.recommendedDirection,
-        fallback.finalRecommendation.recommendedDirection
-      ),
+      recommendedDirection: baseDirection,
       summary: String(finalRecommendation.summary || fallback.finalRecommendation.summary),
-      targetAllocation: normalizeAllocation(
-        finalRecommendation.targetAllocation || fallback.finalRecommendation.targetAllocation
-      ),
+      targetAllocation: chosenTargetAllocation,
       allocationReasoning: String(
         finalRecommendation.allocationReasoning || fallback.finalRecommendation.allocationReasoning
       ),
