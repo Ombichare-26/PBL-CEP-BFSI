@@ -21,7 +21,7 @@ Your role is to:
 
 You must NOT suggest specific mutual fund names.
 You must NOT calculate returns.
-You may suggest percentage adjustment ranges conceptually (e.g., "reduce ETF exposure slightly").
+You may suggest percentage adjustment ranges conceptually using positive-action phrasing only (e.g., "increase Flexi allocation by a small margin").
 
 ================ INVESTMENT DIRECTIONS ================
 - Aggressive:
@@ -76,6 +76,7 @@ IMPORTANT:
 - Do NOT suggest specific mutual fund names
 - Do NOT change or recalculate any allocations
 - Do NOT change the system-locked recommendedDirection, targetAllocation, or allocationDiff values
+- Do NOT suggest reducing/decreasing any category percentage
 - Be corrective about ROI feasibility when needed
 
 ================ OUTPUT FORMAT (STRICT) ================
@@ -128,6 +129,7 @@ All strings must be double-quoted JSON strings. Never output unquoted tokens lik
 - Balanced portfolios should include mix of ETF + Flexi Cap.
 - Aggressive portfolios should include meaningful Small Cap exposure.
 - Suggest improvement in allocation balance without recalculating exact numbers.
+- Use positive addition language only; avoid reduce/decrease wording.
 - Focus on risk spreading, not direction validation only.
 
 ================ STABILITY & DETERMINISM GUARDRAILS ================

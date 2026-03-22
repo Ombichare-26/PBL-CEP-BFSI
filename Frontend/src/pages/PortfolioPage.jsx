@@ -309,13 +309,13 @@ useEffect(() => {
                                 {["ETF", "FLEXI", "SMALL"].map((key) => {
                                   const current = aiResult.aiEvaluation.currentAllocation?.[key];
                                   const target = aiResult.aiEvaluation.targetAllocation?.[key];
-                                  const diff = aiResult.aiEvaluation.allocationDiff?.[key];
-                                  const diffNum = Number(diff);
+                                  const diffNum =
+                                    Number(target) - Number(current);
                                   const diffClass =
                                     Number.isFinite(diffNum) && diffNum !== 0
                                       ? diffNum > 0
                                         ? "ai-diff ai-diff--pos"
-                                        : "ai-diff ai-diff--neg"
+                                        : "ai-diff"
                                       : "ai-diff";
 
                                   return (
@@ -323,7 +323,7 @@ useEffect(() => {
                                       <td className="ai-td-key">{key}</td>
                                       <td>{formatPct(current)}</td>
                                       <td>{formatPct(target)}</td>
-                                      <td className={diffClass}>{formatDiffPct(diff)}</td>
+                                      <td className={diffClass}>{formatDiffPct(current, target)}</td>
                                     </tr>
                                   );
                                 })}
@@ -399,12 +399,15 @@ function formatPct(value) {
   return `${Math.round(n)}%`;
 }
 
-function formatDiffPct(value) {
-  const n = Number(value);
+function formatDiffPct(current, target) {
+  const c = Number(current);
+  const t = Number(target);
+  if (!Number.isFinite(c) || !Number.isFinite(t)) return "—";
+  const n = t - c;
   if (!Number.isFinite(n)) return "—";
+  if (n < 0) return "-";
   if (n === 0) return "0%";
-  const sign = n > 0 ? "+" : "";
-  return `${sign}${Math.round(n)}%`;
+  return `+${Math.round(n)}%`;
 }
 
 export default PortfolioPage;

@@ -59,6 +59,8 @@ Your role is to:
 - Do NOT recalculate percentages.
 - Do NOT suggest specific fund names.
 - Do NOT calculate returns.
+- Do NOT suggest reducing/decreasing any category percentage.
+- If suggesting actions, phrase them as positive additions only (for example: "increase X by Y%").
 
 ================ USER CONTEXT ================
 - Inferred Risk: ${inferredRisk}
@@ -70,7 +72,7 @@ Your role is to:
 - Expected ROI: ${expectedRoi}%
 - Portfolio Allocation: ${JSON.stringify(categoryPercentages)}
 - Target Allocation (LOCKED): ${JSON.stringify(recommendationContext?.targetAllocation || {})}
-- Allocation Diff (LOCKED: target - current): ${JSON.stringify(recommendationContext?.allocationDiff || {})}
+- Allocation Diff (LOCKED absolute adjustment points): ${JSON.stringify(recommendationContext?.allocationDiff || {})}
 - Diversification Notes: ${JSON.stringify(recommendationContext?.diversificationNotes || [])}
 - Diversification Status (LOCKED): ${recommendationContext?.diversificationStatus}
 

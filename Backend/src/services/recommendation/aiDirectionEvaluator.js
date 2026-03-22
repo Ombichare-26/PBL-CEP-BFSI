@@ -18,6 +18,75 @@ function normalizeDiversificationStatus(value, fallback) {
   return fallback;
 }
 
+function formatCategory(category) {
+  const c = String(category || "").toUpperCase();
+  if (c === "FLEXI") return "Flexi";
+  if (c === "SMALL") return "Small";
+  return c;
+}
+
+function buildDeterministicSummary(recommendedDirection) {
+  const dir = String(recommendedDirection || "").toUpperCase();
+  const title = dir.charAt(0) + dir.slice(1).toLowerCase();
+  return `${title} portfolio allocation is suitable for the user's risk profile and investment goals.`;
+}
+
+function buildDeterministicReasoning({
+  currentAllocation,
+  targetAllocation,
+  recommendedDirection,
+}) {
+  const c = currentAllocation || {};
+  const t = targetAllocation || {};
+  return `Given the user's ${String(recommendedDirection || "").toLowerCase()} risk profile and investment goals, a target allocation of ${toNumber(
+    t.ETF
+  )}% ETF, ${toNumber(t.FLEXI)}% FLEXI, and ${toNumber(t.SMALL)}% SMALL is suitable. This allocation transitions from the current mix (${toNumber(
+    c.ETF
+  )}% ETF, ${toNumber(c.FLEXI)}% FLEXI, ${toNumber(
+    c.SMALL
+  )}% SMALL) toward better diversification while keeping the recommendation direction unchanged.`;
+}
+
+function buildDeterministicImprovementSteps({ currentAllocation, targetAllocation }) {
+  const current = currentAllocation || {};
+  const target = targetAllocation || {};
+  const categories = ["ETF", "FLEXI", "SMALL"];
+  const steps = [];
+
+  for (const category of categories) {
+    const c = toNumber(current[category]);
+    const t = toNumber(target[category]);
+    const diff = Number((t - c).toFixed(0));
+    if (diff > 0) {
+      steps.push(
+        `Increase ${formatCategory(category)} allocation by ${diff}% (from ${Math.round(
+          c
+        )}% to ${Math.round(t)}%).`
+      );
+    }
+  }
+
+  for (const category of categories) {
+    const c = toNumber(current[category]);
+    const t = toNumber(target[category]);
+    if (t < c) {
+      steps.push(
+        `Pause fresh allocation to ${formatCategory(
+          category
+        )} and direct new investments to underweight categories until ${formatCategory(
+          category
+        )} moves closer to ${Math.round(t)}%.`
+      );
+    }
+  }
+
+  if (steps.length === 0) {
+    steps.push("Maintain current category mix with periodic rechecks to keep allocations aligned.");
+  }
+
+  return steps.slice(0, 3);
+}
+
 function buildNormalizedRecommendation({
   modelOutput,
   categoryPercentages,
@@ -33,7 +102,7 @@ function buildNormalizedRecommendation({
   );
 
   const normalized = {
-    summary: String(modelOutput?.summary || "").trim() || "Recommendation generated from portfolio risk and user inputs.",
+    summary: buildDeterministicSummary(fallbackRecommendedDirection),
     recommendedDirection: fallbackRecommendedDirection,
     diversificationStatus: normalizeDiversificationStatus(
       modelOutput?.diversificationStatus,
@@ -56,15 +125,16 @@ function buildNormalizedRecommendation({
     targetAllocation: recommendationContext?.targetAllocation || {},
     allocationDiff: recommendationContext?.allocationDiff || {},
     detailedExplanation: {
-      targetAllocationReasoning:
-        modelOutput?.detailedExplanation?.targetAllocationReasoning ||
-        "",
+      targetAllocationReasoning: buildDeterministicReasoning({
+        currentAllocation: categoryPercentages,
+        targetAllocation: recommendationContext?.targetAllocation || {},
+        recommendedDirection: fallbackRecommendedDirection,
+      }),
     },
-    improvementSteps: Array.isArray(modelOutput?.improvementSteps)
-      ? modelOutput.improvementSteps
-      : Array.isArray(modelOutput?.diversificationSuggestions)
-        ? modelOutput.diversificationSuggestions
-        : [],
+    improvementSteps: buildDeterministicImprovementSteps({
+      currentAllocation: categoryPercentages,
+      targetAllocation: recommendationContext?.targetAllocation || {},
+    }),
   };
 
   return normalized;

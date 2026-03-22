@@ -117,7 +117,8 @@ function buildAllocationDiff({ currentAllocation, targetAllocation }) {
   for (const k of keys) {
     const current = Number(currentAllocation?.[k]) || 0;
     const target = Number(targetAllocation?.[k]) || 0;
-    diff[k] = Number((target - current).toFixed(0));
+    // Keep adjustment values non-negative for recommendation display.
+    diff[k] = Number(Math.abs(target - current).toFixed(0));
   }
   return diff;
 }
