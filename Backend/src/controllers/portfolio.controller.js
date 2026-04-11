@@ -4,7 +4,9 @@
 // import { execFile } from "child_process";
 // import { promisify } from "util";
 import UserPortfolio from "../models/User_Portfolio.model.js";
+import AMFIMaster from "../models/AMFI_Master_Fund.model.js";
 import { fetchAmfiNavMap } from "../utils/amfiNav.js";
+import { fetchSchemeRiskMap } from "../services/recommendation/riskometerUtils.js";
 
 // const execFileAsync = promisify(execFile);
 // const backendRoot = process.cwd();
@@ -103,6 +105,12 @@ export const uploadPortfolioFromJSON = async (req, res) => {
         scheme_name: fund.scheme_name,
         units: fund.units,
         amfi_code: fund.amfi_code || null,
+        risk_level: fund.risk_level || "",
+        risk_source_type: fund.risk_source_type || "",
+        risk_source_url: fund.risk_source_url || "",
+        risk_match_confidence: Number(fund.risk_match_confidence) || 0,
+        risk_lookup_status: fund.risk_lookup_status || "",
+        risk_lookup_query: fund.risk_lookup_query || "",
         category: fund.category || "OTHER"
       };
     });
@@ -141,14 +149,45 @@ export const getPortfolioBySession = async (req, res) => {
 
     // Fetch AMFI NAV once and enrich each fund with live NAV and current value
     const amfiNavMap = await fetchAmfiNavMap();
-
+    const amfiCodes = [...new Set(
+      portfolio
+        .map((doc) => String(doc.amfi_code || "").trim())
+        .filter(Boolean)
+    )];
+    const masterRows = await AMFIMaster.find(
+      { amfi_code: { $in: amfiCodes } },
+      {
+        amfi_code: 1,
+        category: 1,
+        risk_level: 1,
+        risk_source_type: 1,
+        risk_source_url: 1,
+        risk_as_of_date: 1,
+        risk_last_verified_at: 1,
+      }
+    ).lean();
+    const masterMap = new Map(
+      masterRows.map((row) => [String(row.amfi_code), row])
+    );
+    const schemeRiskMap = await fetchSchemeRiskMap(
+      amfiCodes,
+      portfolio.map((doc) => {
+        const fund = doc.toObject ? doc.toObject() : { ...doc };
+        return {
+          scheme_name: fund.scheme_name,
+          amfi_code: fund.amfi_code,
+          category: fund.category || "OTHER",
+        };
+      })
+    );
 
 const data = portfolio.map((doc) => {
   const fund = doc.toObject ? doc.toObject() : { ...doc };
 
   const rawCode = fund.amfi_code;
   const key = String(rawCode || "").trim();
-
+  const masterEntry = masterMap.get(key);
+  const schemeRiskEntry = schemeRiskMap.get(key);
 
   const navEntry = amfiNavMap.get(key);
 
@@ -159,6 +198,27 @@ const data = portfolio.map((doc) => {
     fund.nav = 0;
     fund.current_value = 0;
   }
+
+  fund.category = fund.category || "OTHER";
+  fund.master_category = masterEntry?.category || "";
+  const verifiedRiskSource = schemeRiskEntry?.riskSource && schemeRiskEntry?.riskSource !== "DERIVED_HISTORY_MODEL"
+    ? schemeRiskEntry
+    : null;
+
+  fund.risk_level = verifiedRiskSource?.riskLabel || masterEntry?.risk_level || fund.risk_level || "";
+  fund.risk_source_type =
+    verifiedRiskSource?.riskSource
+    || masterEntry?.risk_source_type
+    || (masterEntry?.risk_level ? "MASTER_CACHE" : fund.risk_source_type || "");
+  fund.risk_source_url = verifiedRiskSource?.riskSourceUrl || masterEntry?.risk_source_url || fund.risk_source_url || "";
+  fund.risk_as_of_date = verifiedRiskSource?.riskAsOfDate || masterEntry?.risk_as_of_date || null;
+  fund.risk_last_verified_at = masterEntry?.risk_last_verified_at || null;
+  fund.derived_risk_score = schemeRiskEntry?.derivedRiskScore ?? null;
+  fund.volatility_pct = schemeRiskEntry?.volatilityPct ?? null;
+  fund.max_drawdown_pct = schemeRiskEntry?.maxDrawdownPct ?? null;
+  fund.risk_match_confidence = Number(fund.risk_match_confidence) || 0;
+  fund.risk_lookup_status = fund.risk_lookup_status || "";
+  fund.risk_lookup_query = fund.risk_lookup_query || "";
 
   return fund;
 });

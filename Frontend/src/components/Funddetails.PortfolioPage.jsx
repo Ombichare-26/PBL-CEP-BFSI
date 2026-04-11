@@ -2,10 +2,38 @@ import { useState, useEffect } from "react";
 import FundGraph from "./Fundgraph.PortfolioPage";
 import { getFundHistoricalNav } from "../services/fundService.PortfolioPage";
 
+function formatRiskometer(value) {
+  if (!value) return "Not verified";
+  return String(value).replace(/_/g, " ");
+}
+
+function formatDate(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-IN");
+}
+
+function formatRiskScore(value) {
+  const score = Number(value);
+  return Number.isFinite(score) && score > 0 ? `${score} / 6` : "—";
+}
+
+function formatRiskSource(value) {
+  if (!value) return "Unverified";
+
+  return String(value)
+    .replace(/^MASTER_CACHE$/, "MASTER CACHE")
+    .replace(/^GEMINI_THIRD_PARTY_/, "")
+    .replace(/^GEMINI_/, "")
+    .replace(/_/g, " ");
+}
+
 function FundDetails({ fund, onClose }) {
   const [selectedPeriod, setSelectedPeriod] = useState("1m");
   const [historicalData, setHistoricalData] = useState([]);
   const [loadingHistorical, setLoadingHistorical] = useState(false);
+  const [riskMetrics, setRiskMetrics] = useState(null);
 
   const [liveData, setLiveData] = useState({
     currentNav: fund?.nav || 0,
@@ -32,10 +60,12 @@ function FundDetails({ fund, onClose }) {
           currentNav: response.currentNav ?? 0,
           dayChange: response.dayChange ?? 0
         });
+        setRiskMetrics(response.riskMetrics || null);
 
       } catch (err) {
         console.error("Error fetching historical data:", err);
         setHistoricalData([]);
+        setRiskMetrics(null);
       } finally {
         setLoadingHistorical(false);
       }
@@ -57,6 +87,9 @@ function FundDetails({ fund, onClose }) {
   const dayChange = liveData.dayChange;
   const currentNav = liveData.currentNav;
   const isPositive = dayChange > 0;
+  const displayedRiskLevel = fund.risk_level || "";
+  const displayedRiskSource = fund.risk_source_type || "";
+  const displayedRiskDate = fund.risk_as_of_date || fund.risk_last_verified_at || null;
 
   return (
     <div className="fund-details-overlay" onClick={onClose}>
@@ -97,6 +130,15 @@ function FundDetails({ fund, onClose }) {
                 AMFI Code: {fund.amfi_code}
               </div>
             )}
+            <div className="riskometer-inline">
+              <span className="riskometer-inline__label">Risk-o-meter</span>
+              <span className={`riskometer-chip ${displayedRiskLevel ? "riskometer-chip--verified" : "riskometer-chip--unverified"}`}>
+                {formatRiskometer(displayedRiskLevel)}
+              </span>
+              <span className="riskometer-inline__source">
+                Source: {formatRiskSource(displayedRiskSource)}
+              </span>
+            </div>
           </div>
 
           {/* Period Buttons */}
@@ -150,6 +192,71 @@ function FundDetails({ fund, onClose }) {
               <span className="info-label">Category:</span>
               <span className="info-value">
                 {fund.category || "—"}
+              </span>
+            </div>
+
+            <div className="info-row">
+              <span className="info-label">Risk-o-meter:</span>
+              <span className="info-value">
+                {formatRiskometer(displayedRiskLevel)}
+              </span>
+            </div>
+
+            <div className="info-row">
+              <span className="info-label">Risk Verified On:</span>
+              <span className="info-value">
+                {formatDate(displayedRiskDate)}
+              </span>
+            </div>
+
+            <div className="info-row">
+              <span className="info-label">Risk Source:</span>
+              <span className="info-value">
+                {formatRiskSource(displayedRiskSource)}
+              </span>
+            </div>
+
+            <div className="info-row">
+              <span className="info-label">Derived Risk Score:</span>
+              <span className="info-value">
+                {formatRiskScore(fund.derived_risk_score || riskMetrics?.derivedRiskScore)}
+              </span>
+            </div>
+
+            <div className="info-row">
+              <span className="info-label">Volatility:</span>
+              <span className="info-value">
+                {fund.volatility_pct ?? riskMetrics?.volatilityPct ?? "—"}
+                {fund.volatility_pct != null || riskMetrics?.volatilityPct != null ? "%" : ""}
+              </span>
+            </div>
+
+            <div className="info-row">
+              <span className="info-label">Max Drawdown:</span>
+              <span className="info-value">
+                {fund.max_drawdown_pct ?? riskMetrics?.maxDrawdownPct ?? "—"}
+                {fund.max_drawdown_pct != null || riskMetrics?.maxDrawdownPct != null ? "%" : ""}
+              </span>
+            </div>
+
+            <div className="info-row">
+              <span className="info-label">Lookup Status:</span>
+              <span className="info-value">
+                {fund.risk_lookup_status || "—"}
+              </span>
+            </div>
+
+            <div className="info-row">
+              <span className="info-label">Lookup Query:</span>
+              <span className="info-value">
+                {fund.risk_lookup_query || "—"}
+              </span>
+            </div>
+
+            <div className="info-row">
+              <span className="info-label">Risk Source URL:</span>
+              <span className="info-value" style={{ wordBreak: "break-word" }}>
+                {fund.risk_source_url || riskMetrics?.sourceUrl || "—"}
               </span>
             </div>
           </div>

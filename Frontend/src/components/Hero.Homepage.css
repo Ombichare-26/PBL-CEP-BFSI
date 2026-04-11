@@ -2,8 +2,26 @@
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);
   gap: 3rem;
-  padding: 4rem 3rem 3rem;
+  padding: 4.5rem 3rem 3.5rem;
   align-items: center;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.14), transparent 28rem),
+    linear-gradient(135deg, #f8fbff 0%, #eef6ff 55%, #ffffff 100%);
+}
+
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.12);
+  color: #0369a1;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  margin-bottom: 1rem;
 }
 
 .hero-text h1 {
@@ -14,28 +32,31 @@
 
 .hero-text p {
   margin-top: 1.25rem;
-  max-width: 30rem;
+  max-width: 35rem;
   color: #4b5563;
+  font-size: 1.02rem;
+  line-height: 1.75;
 }
 
 .hero-buttons {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: 0.85rem;
   margin-top: 1.75rem;
 }
 
 .primary-btn,
 .secondary-btn {
-  padding: 0.7rem 1.4rem;
-  border-radius: 0.75rem;
+  padding: 0.85rem 1.45rem;
+  border-radius: 0.9rem;
   font-weight: 600;
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease,
     color 0.15s ease, border-color 0.15s ease;
 }
 
- .primary-btn {
+.primary-btn {
   background: #0ea5e9;
   color: #ffffff;
   box-shadow: 0 12px 30px rgba(14, 165, 233, 0.35);
@@ -47,14 +68,43 @@
 }
 
 .secondary-btn {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.9);
   color: #111827;
   border: 1px solid #d1d5db;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
 .secondary-btn:hover {
   background: #e5f3fb;
   border-color: #0ea5e9;
+}
+
+.hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+  max-width: 38rem;
+}
+
+.hero-metric {
+  padding: 1rem 1.1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(191, 219, 254, 0.9);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
+.hero-metric strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.98rem;
+}
+
+.hero-metric span {
+  color: #4b5563;
+  font-size: 0.92rem;
+  line-height: 1.5;
 }
 
 .hero-image {
@@ -63,22 +113,97 @@
 }
 
 .image-box {
-  width: 260px;
-  height: 260px;
-  border-radius: 1.75rem;
-  background: radial-gradient(circle at top left, #e0f2fe, #bfdbfe 45%, #ffffff);
+  width: min(100%, 360px);
+  aspect-ratio: 1 / 1;
+  border-radius: 2rem;
+  background: linear-gradient(160deg, #dbeafe 0%, #eff6ff 45%, #f8fafc 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 4rem;
-  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.14);
+  border: 1px solid rgba(191, 219, 254, 0.9);
+  position: relative;
+  overflow: hidden;
+}
+
+.image-box__ring {
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  border: 1px dashed rgba(14, 165, 233, 0.35);
+}
+
+.image-box__content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.image-box__icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4.5rem;
+}
+
+.image-box__card {
+  position: absolute;
+  padding: 0.75rem 0.95rem;
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.1);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.image-box__card--top {
+  top: 1.2rem;
+  right: 1rem;
+}
+
+.image-box__card--bottom {
+  bottom: 1.2rem;
+  left: 1rem;
 }
 
 @media (max-width: 640px) {
   .image-box {
-    width: 210px;
-    height: 210px;
+    width: min(100%, 260px);
+  }
+
+  .hero {
+    padding: 3rem 1.2rem 2.5rem;
+    gap: 2rem;
+  }
+
+  .hero-buttons {
+    width: 100%;
+  }
+
+  .primary-btn,
+  .secondary-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .hero-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .image-box__icon {
     font-size: 3.2rem;
   }
 }
 
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero-image {
+    justify-content: center;
+  }
+}

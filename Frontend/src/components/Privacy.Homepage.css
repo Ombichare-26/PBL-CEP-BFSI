@@ -1,10 +1,22 @@
 /* Privacy section */
 .privacy {
-  padding: 2.5rem 3rem 3.5rem;
-  margin-top: 1rem;
-  border-radius: 1.25rem;
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
+  padding: 2.75rem 3rem 3rem;
+  margin: 1rem 3rem 3.5rem;
+  border-radius: 1.5rem;
+  background: linear-gradient(135deg, #ecfdf5 0%, #f8fafc 100%);
+  border: 1px solid #d1fae5;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.05);
+}
+
+.privacy-tag {
+  display: inline-flex;
+  padding: 0.38rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.13);
+  color: #047857;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 0.85rem;
 }
 
 .privacy h2 {
@@ -15,5 +27,12 @@
 .privacy p {
   max-width: 36rem;
   color: #4b5563;
+  line-height: 1.7;
 }
 
+@media (max-width: 640px) {
+  .privacy {
+    margin: 1rem 1.2rem 2.2rem;
+    padding: 2rem 1.2rem;
+  }
+}

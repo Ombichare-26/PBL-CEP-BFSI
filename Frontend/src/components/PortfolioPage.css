@@ -41,6 +41,29 @@ body {
     border: 1px solid #ddd;
     padding: 10px;
   }
+
+  .riskometer-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .riskometer-chip--verified {
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+
+  .riskometer-chip--unverified {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
   
   .fund-table tr:hover {
     background: #f3f4f6;
@@ -168,6 +191,25 @@ body {
     font-size: 12px;
     color: #6b7280;
     font-family: monospace;
+  }
+
+  .riskometer-inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .riskometer-inline__label {
+    font-size: 13px;
+    color: #6b7280;
+    font-weight: 600;
+  }
+
+  .riskometer-inline__source {
+    font-size: 12px;
+    color: #4b5563;
+    font-weight: 500;
   }
 
   .period-selector {

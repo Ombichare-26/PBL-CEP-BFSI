@@ -342,6 +342,14 @@ import json
 import requests
 import re
 import time
+try:
+    from bs4 import BeautifulSoup
+except Exception:
+    BeautifulSoup = None
+try:
+    from playwright.sync_api import sync_playwright
+except Exception:
+    sync_playwright = None
 from difflib import SequenceMatcher
 from collections import defaultdict
 
@@ -385,6 +393,10 @@ REPLACEMENTS = {
     "contra fund": "contra",
     "banking & psu": "banking psu",
     "banking and psu": "banking psu",
+}
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0"
 }
 
 def is_etf(tokens: set) -> bool:
@@ -463,11 +475,177 @@ def strip_plan_words(text: str):
     )
 
 # =========================================================
+# VALUE RESEARCH RISK LOOKUP
+# =========================================================
+
+def normalize_risk_label(value: str):
+    if not value:
+        return ""
+    normalized = value.strip().lower().replace("-", " ")
+    mapping = {
+        "low": "LOW",
+        "moderate": "MODERATE",
+        "high": "HIGH",
+        "very high": "VERY_HIGH",
+        "moderately high": "MODERATELY_HIGH",
+    }
+    return mapping.get(normalized, "")
+
+def google_search_value_research_url_requests(scheme_name: str):
+    if BeautifulSoup is None:
+        return None
+
+    query = requests.utils.quote(f"{scheme_name} riskometer")
+    url = f"https://www.google.com/search?q={query}&hl=en"
+
+    try:
+        res = requests.get(url, headers=HEADERS, timeout=20)
+        res.raise_for_status()
+        soup = BeautifulSoup(res.text, "html.parser")
+
+        for link in soup.find_all("a", href=True):
+            href = link["href"]
+            if href.startswith("/url?q="):
+                candidate = requests.utils.unquote(href.split("/url?q=", 1)[1].split("&", 1)[0])
+            else:
+                candidate = href
+
+            if "valueresearchonline.com/funds/" in candidate:
+                return candidate
+    except Exception:
+        return None
+
+    return None
+
+def extract_risk_from_value_research_requests(url: str):
+    if BeautifulSoup is None or not url:
+        return None
+
+    try:
+        res = requests.get(url, headers=HEADERS, timeout=20)
+        res.raise_for_status()
+        soup = BeautifulSoup(res.text, "html.parser")
+        text = " ".join(soup.stripped_strings).lower()
+
+        patterns = [
+            (r"this fund has\s+(very high|moderately high|high|moderate|low)\s+risk", None),
+            (r"riskometer(?:\s+image)?\s+(very high|moderately high|high|moderate|low)", None),
+        ]
+
+        for pattern, _unused in patterns:
+            match = re.search(pattern, text)
+            if match:
+                return normalize_risk_label(match.group(1))
+    except Exception:
+        return None
+
+    return None
+
+def lookup_riskometer_with_playwright(scheme_name: str):
+    if sync_playwright is None:
+        return None
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+
+            query = f"{scheme_name} riskometer"
+            google_url = f"https://www.google.com/search?q={requests.utils.quote(query)}&hl=en"
+            page.goto(google_url, wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_timeout(1500)
+
+            vr_url = None
+            for link in page.locator("a").all():
+                href = link.get_attribute("href")
+                if not href:
+                    continue
+                if href.startswith("/url?q="):
+                    href = requests.utils.unquote(href.split("/url?q=", 1)[1].split("&", 1)[0])
+                if "valueresearchonline.com/funds/" in href:
+                    vr_url = href
+                    break
+
+            if not vr_url:
+                browser.close()
+                return {
+                    "risk_level": "",
+                    "risk_source_type": "",
+                    "risk_source_url": "",
+                    "risk_lookup_status": "SEARCH_NOT_FOUND",
+                    "risk_lookup_query": scheme_name,
+                }
+
+            page.goto(vr_url, wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_timeout(2000)
+            body_text = page.locator("body").inner_text(timeout=10000)
+            browser.close()
+
+            patterns = [
+                r"Riskometer\s+(Very High|Moderately High|High|Moderate|Low)",
+                r"This fund has\s+(Very High|Moderately High|High|Moderate|Low)\s+risk",
+            ]
+
+            for pattern in patterns:
+                match = re.search(pattern, body_text, flags=re.IGNORECASE)
+                if match:
+                    return {
+                        "risk_level": normalize_risk_label(match.group(1)),
+                        "risk_source_type": "VALUE_RESEARCH",
+                        "risk_source_url": vr_url,
+                        "risk_lookup_status": "FOUND",
+                        "risk_lookup_query": scheme_name,
+                    }
+
+            return {
+                "risk_level": "",
+                "risk_source_type": "",
+                "risk_source_url": vr_url,
+                "risk_lookup_status": "PAGE_FOUND_RISK_NOT_EXTRACTED",
+                "risk_lookup_query": scheme_name,
+            }
+    except Exception:
+        return None
+
+def lookup_riskometer_from_google(scheme_name: str):
+    playwright_result = lookup_riskometer_with_playwright(scheme_name)
+    if playwright_result:
+        return playwright_result
+
+    vr_url = google_search_value_research_url_requests(scheme_name)
+    if not vr_url:
+        return {
+            "risk_level": "",
+            "risk_source_type": "",
+            "risk_source_url": "",
+            "risk_lookup_status": "SEARCH_NOT_FOUND",
+            "risk_lookup_query": scheme_name,
+        }
+
+    risk_level = extract_risk_from_value_research_requests(vr_url)
+    if not risk_level:
+        return {
+            "risk_level": "",
+            "risk_source_type": "",
+            "risk_source_url": vr_url,
+            "risk_lookup_status": "PAGE_FOUND_RISK_NOT_EXTRACTED",
+            "risk_lookup_query": scheme_name,
+        }
+
+    return {
+        "risk_level": risk_level,
+        "risk_source_type": "VALUE_RESEARCH",
+        "risk_source_url": vr_url,
+        "risk_lookup_status": "FOUND",
+        "risk_lookup_query": scheme_name,
+    }
+
+# =========================================================
 # AMFI DATA LOADING
 # =========================================================
 
 def fetch_amfi_data():
-    res = requests.get(AMFI_URL)
+    res = requests.get(AMFI_URL, headers=HEADERS, timeout=20)
     res.raise_for_status()
 
     schemes = []
@@ -598,9 +776,17 @@ if __name__ == "__main__":
             holding["amfi_code"] = amfi["amfi_code"]
             holding["category"] = cat_amfi if cat_pdf == cat_amfi else "OTHER"
             holding["confidence"] = amfi["confidence"]
+            risk_info = lookup_riskometer_from_google(amfi["amfi_name"])
         else:
             holding["amfi_code"] = "NOT_FOUND"
             holding["category"] = "OTHER"
             holding["confidence"] = 0.0
+            risk_info = lookup_riskometer_from_google(scheme)
+
+        holding["risk_level"] = risk_info["risk_level"]
+        holding["risk_source_type"] = risk_info["risk_source_type"]
+        holding["risk_source_url"] = risk_info["risk_source_url"]
+        holding["risk_lookup_status"] = risk_info["risk_lookup_status"]
+        holding["risk_lookup_query"] = risk_info["risk_lookup_query"]
 
     print(json.dumps(portfolio))

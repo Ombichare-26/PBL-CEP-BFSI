@@ -5,7 +5,9 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon -r dotenv/config --experimental-json-modules src/index.js"
+    "dev": "nodemon -r dotenv/config --experimental-json-modules src/index.js",
+    "sync:amfi-master": "node src/scripts/syncAmfiMaster.js",
+    "sync:amfi-master-with-risk": "node src/scripts/syncAmfiMaster.js ./data/risk-levels.import.json"
   },
   "keywords": [
     "javascript",

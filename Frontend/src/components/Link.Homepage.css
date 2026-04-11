@@ -1,9 +1,9 @@
 .link-section {
-    background-color: #f9fafb;
+    background: linear-gradient(90deg, #eff6ff 0%, #f8fafc 100%);
     padding: 12px 0;
     overflow: hidden;
-    border-top: 1px solid #e5e7eb;
-    border-bottom: 1px solid #e5e7eb;
+    border-top: 1px solid #dbeafe;
+    border-bottom: 1px solid #dbeafe;
   }
   
   .marquee {
@@ -14,11 +14,12 @@
   
   .marquee-content {
     display: inline-flex;
-    gap: 40px;
+    gap: 18px;
     white-space: nowrap;
     animation: scroll-left 15s linear infinite;
-    font-size: 16px;
+    font-size: 15px;
     align-items: center;
+    color: #1e293b;
   }
   .marquee-content:hover {
     animation-play-state: paused;
@@ -29,6 +30,9 @@
     color: #2563eb;
     font-weight: 600;
     text-decoration: none;
+    padding: 0.32rem 0.72rem;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.1);
   }
   
   .external-link:hover {

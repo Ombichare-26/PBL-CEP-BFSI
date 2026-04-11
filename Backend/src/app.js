@@ -22,6 +22,7 @@ import sessionRouter from "./routes/session.routes.js";
 import investmentRouter from "./routes/investment.routes.js";
 import portfolioRouter from "./routes/portfolio.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
+import masterDataRoutes from "./routes/masterData.routes.js";
 
 // routes declaration
 app.use(express.json());
@@ -29,6 +30,7 @@ app.use("/api/v1/session", sessionRouter);
 app.use("/api/v1/investments", investmentRouter);
 app.use("/api/v1/portfolio", portfolioRouter);
 app.use("/api/v1/ai", aiRoutes);
+app.use("/api/v1/master-data", masterDataRoutes);
 
 // middleware
 app.use(express.json());

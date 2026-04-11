@@ -21,7 +21,6 @@ router.post("/recommendation-chat", async (req, res) => {
       planningContext: req.body?.planningContext || {},
       chatHistory: Array.isArray(req.body?.chatHistory) ? req.body.chatHistory : [],
       userMessage: req.body?.userMessage || "",
-      pendingProposal: req.body?.pendingProposal || null,
     });
     res.json(result);
   } catch (err) {

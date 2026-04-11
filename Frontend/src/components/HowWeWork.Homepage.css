@@ -1,12 +1,30 @@
 /* How We Work section */
 .how {
-  padding: 3rem 3rem 2rem;
+  padding: 3.25rem 3rem 2.25rem;
   background: #ffffff;
 }
 
+.section-tag {
+  display: inline-flex;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  background: #ecfeff;
+  color: #0f766e;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 0.9rem;
+}
+
 .how h2 {
-  font-size: 1.8rem;
-  margin-bottom: 1.5rem;
+  font-size: 1.95rem;
+  margin-bottom: 0.7rem;
+}
+
+.how-subtitle {
+  max-width: 42rem;
+  color: #64748b;
+  line-height: 1.65;
+  margin-bottom: 1.7rem;
 }
 
 .steps {
@@ -16,10 +34,11 @@
 }
 
 .step {
-  padding: 1.3rem 1.2rem;
-  border-radius: 1rem;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  padding: 1.35rem 1.25rem;
+  border-radius: 1.2rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
 }
 
 .step h3 {
@@ -36,12 +55,23 @@
 }
 
 .step p {
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 0.45rem;
+}
+
+.step span {
   color: #4b5563;
+  line-height: 1.55;
+  font-size: 0.94rem;
 }
 
 @media (max-width: 640px) {
+  .how {
+    padding: 2.6rem 1.2rem 1.8rem;
+  }
+
   .steps {
     grid-template-columns: minmax(0, 1fr);
   }
 }
-

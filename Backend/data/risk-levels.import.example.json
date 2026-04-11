@@ -1,0 +1,11 @@
+[
+  {
+    "amfi_code": "120503",
+    "scheme_name": "Example Fund Direct Growth",
+    "risk_level": "VERY_HIGH",
+    "source_url": "https://www.example-amc.com/factsheet/example-fund.pdf",
+    "source_type": "AMC_FACTSHEET",
+    "as_of_date": "2026-03-31",
+    "notes": "Imported from official AMC factsheet risk-o-meter disclosure."
+  }
+]

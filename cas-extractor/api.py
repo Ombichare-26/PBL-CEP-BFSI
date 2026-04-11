@@ -7,7 +7,9 @@ import os
 import sys
 import requests
 from datetime import datetime, timedelta
+from math import sqrt
 app = FastAPI()
+RISK_HISTORY_WINDOW_DAYS = 365 * 5
 
 
 
@@ -65,6 +67,121 @@ async def extract_cas(file: UploadFile = File(...)):
             status_code=500,
             detail=f"Unexpected error: {str(e)}"
         )
+
+def normalize_category_risk_score(category: str) -> int:
+    value = str(category or "").strip().upper()
+    if not value:
+        return 3
+    if value == "SMALL" or "SMALL CAP" in value or "MICRO CAP" in value:
+        return 6
+    if any(token in value for token in ["MID CAP", "SECTORAL", "THEMATIC", "FOCUSED", "INTERNATIONAL", "COMMODITY"]):
+        return 5
+    if value in {"ETF", "FLEXI"} or any(token in value for token in ["FLEXI", "MULTI CAP", "LARGE CAP", "ELSS", "INDEX", "ETF", "VALUE", "CONTRA"]):
+        return 4
+    if any(token in value for token in ["HYBRID", "BALANCED", "EQUITY SAVINGS", "ARBITRAGE", "MULTI ASSET"]):
+        return 3
+    if any(token in value for token in ["GILT", "CORPORATE BOND", "BANKING", "PSU", "SHORT DURATION", "MEDIUM DURATION", "DYNAMIC BOND"]):
+        return 2
+    if any(token in value for token in ["OVERNIGHT", "LIQUID", "MONEY MARKET", "ULTRA SHORT"]):
+        return 1
+    return 3 if value == "OTHER" else 4
+
+def get_volatility_bucket_score(volatility_pct: float) -> int:
+    value = max(0.0, float(volatility_pct or 0))
+    if value <= 2:
+        return 1
+    if value <= 5:
+        return 2
+    if value <= 10:
+        return 3
+    if value <= 15:
+        return 4
+    if value <= 22:
+        return 5
+    return 6
+
+def get_drawdown_bucket_score(drawdown_pct: float) -> int:
+    value = max(0.0, float(drawdown_pct or 0))
+    if value <= 2:
+        return 1
+    if value <= 5:
+        return 2
+    if value <= 10:
+        return 3
+    if value <= 20:
+        return 4
+    if value <= 30:
+        return 5
+    return 6
+
+def risk_label_from_score(score: int) -> str:
+    return {
+        1: "LOW",
+        2: "LOW_TO_MODERATE",
+        3: "MODERATE",
+        4: "MODERATELY_HIGH",
+        5: "HIGH",
+        6: "VERY_HIGH",
+    }.get(max(1, min(6, int(round(score)))), "UNKNOWN")
+
+def calculate_annualized_volatility(nav_points: list[float]):
+    if len(nav_points) < 3:
+        return None
+    returns = []
+    for index in range(1, len(nav_points)):
+        prev_nav = float(nav_points[index - 1] or 0)
+        curr_nav = float(nav_points[index] or 0)
+        if prev_nav <= 0 or curr_nav <= 0:
+            continue
+        returns.append((curr_nav - prev_nav) / prev_nav)
+    if len(returns) < 2:
+        return None
+    mean = sum(returns) / len(returns)
+    variance = sum((ret - mean) ** 2 for ret in returns) / (len(returns) - 1)
+    return round((sqrt(max(variance, 0)) * sqrt(252) * 100), 2)
+
+def calculate_max_drawdown(nav_points: list[float]):
+    if not nav_points:
+        return None
+    peak = float(nav_points[0] or 0)
+    max_drawdown = 0.0
+    for nav in nav_points:
+        nav = float(nav or 0)
+        if nav <= 0:
+            continue
+        peak = max(peak, nav)
+        if peak > 0:
+            max_drawdown = max(max_drawdown, ((peak - nav) / peak) * 100)
+    return round(max_drawdown, 2)
+
+def derive_risk_metrics(category: str, nav_points: list[float], source_url: str = "", as_of_date: str | None = None):
+    volatility_pct = calculate_annualized_volatility(nav_points)
+    max_drawdown_pct = calculate_max_drawdown(nav_points)
+    category_score = normalize_category_risk_score(category)
+    volatility_score = get_volatility_bucket_score(volatility_pct or 0)
+    drawdown_score = get_drawdown_bucket_score(max_drawdown_pct or 0)
+
+    derived_score = round((category_score * 0.4) + (volatility_score * 0.3) + (drawdown_score * 0.3))
+    if category_score >= 5 and (volatility_score >= 5 or drawdown_score >= 5):
+        derived_score = max(derived_score, 5)
+    if category_score <= 2 and volatility_score <= 2 and drawdown_score <= 2:
+        derived_score = min(derived_score, 2)
+
+    derived_score = max(1, min(6, derived_score))
+    return {
+        "category": category,
+        "categoryScore": category_score,
+        "volatilityPct": volatility_pct,
+        "volatilityScore": volatility_score,
+        "maxDrawdownPct": max_drawdown_pct,
+        "drawdownScore": drawdown_score,
+        "derivedRiskScore": derived_score,
+        "derivedRiskLevel": risk_label_from_score(derived_score),
+        "sourceType": "DERIVED_HISTORY_MODEL",
+        "sourceUrl": source_url,
+        "asOfDate": as_of_date,
+    }
+
 @app.get("/fund-history/{amfi_code}")
 async def get_fund_history(amfi_code: str, period: str = "1m"):
     try:
@@ -76,6 +193,7 @@ async def get_fund_history(amfi_code: str, period: str = "1m"):
 
         data = res.json()
         historical = data.get("data", [])
+        meta = data.get("meta", {})
 
         if not historical:
             return {"data": []}
@@ -120,10 +238,39 @@ async def get_fund_history(amfi_code: str, period: str = "1m"):
         else:
             day_change = 0
 
+        category = (
+            meta.get("scheme_category")
+            or meta.get("scheme_type")
+            or ""
+        )
+        latest_history_date = historical[-1]["date_obj"] if historical else None
+        risk_window_start = (
+            latest_history_date - timedelta(days=RISK_HISTORY_WINDOW_DAYS)
+            if latest_history_date
+            else None
+        )
+        risk_window_history = [
+            item for item in historical
+            if not risk_window_start or item["date_obj"] >= risk_window_start
+        ]
+
+        risk_metrics = derive_risk_metrics(
+            category,
+            [float(item["nav"]) for item in risk_window_history if item.get("nav")],
+            source_url=url,
+            as_of_date=latest_history_date.strftime("%Y-%m-%d") if latest_history_date else None,
+        )
+        risk_metrics["windowStartDate"] = (
+            risk_window_history[0]["date_obj"].strftime("%Y-%m-%d")
+            if risk_window_history
+            else None
+        )
+
         return {
             "data": filtered,
             "currentNav": latest_nav,
-            "dayChange": round(day_change, 2)
+            "dayChange": round(day_change, 2),
+            "riskMetrics": risk_metrics,
         }
 
     except Exception as e:

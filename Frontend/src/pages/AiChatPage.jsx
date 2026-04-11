@@ -22,6 +22,11 @@ function formatPct(value) {
   return `${Math.round(n)}%`;
 }
 
+function formatEnum(value) {
+  if (!value) return "-";
+  return String(value).replace(/_/g, " ");
+}
+
 function AiChatPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -37,6 +42,7 @@ function AiChatPage() {
       role: "assistant",
       content:
         "Share your concerns, constraints, or plans. I will refine the final allocation recommendation before you move to funds.",
+      source: "SYSTEM",
     },
   ]);
   const [input, setInput] = useState("");
@@ -46,7 +52,6 @@ function AiChatPage() {
     initialContext?.recommendation || null
   );
   const [analysis, setAnalysis] = useState(null);
-  const [pendingProposal, setPendingProposal] = useState(null);
   const abortControllerRef = useRef(null);
 
   const sessionId = initialContext?.sessionId || null;
@@ -57,6 +62,20 @@ function AiChatPage() {
       abortControllerRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !initialContext?.recommendation || !finalRecommendation) return;
+    sessionStorage.setItem(
+      CHAT_CONTEXT_KEY,
+      JSON.stringify({
+        ...initialContext,
+        recommendation: {
+          ...initialContext.recommendation,
+          ...finalRecommendation,
+        },
+      })
+    );
+  }, [finalRecommendation, initialContext]);
 
   const handleTerminate = () => {
     abortControllerRef.current?.abort();
@@ -91,17 +110,21 @@ function AiChatPage() {
         planningContext,
         chatHistory: messages,
         userMessage,
-        pendingProposal,
       }, { signal: controller.signal });
 
       if (res?.reply) {
-        setMessages((prev) => [...prev, { role: "assistant", content: res.reply }]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: res.reply,
+            source: res?.llm?.status === "SUCCESS" ? "GEMINI" : "RULE_BASED",
+            model: res?.llm?.model || "",
+          },
+        ]);
       }
       if (res?.analysis) {
         setAnalysis(res.analysis);
-      }
-      if (res?.changeControl) {
-        setPendingProposal(res.changeControl.proposedTargetAllocation || null);
       }
       if (res?.finalRecommendation) {
         setFinalRecommendation((prev) => ({ ...prev, ...res.finalRecommendation }));
@@ -157,27 +180,109 @@ function AiChatPage() {
         <div className="ai-card-text ai-chat-page__summary" style={{ marginBottom: 8 }}>
           {finalRecommendation?.summary || "-"}
         </div>
-        <div className="ai-table-wrap">
-          <table className="ai-table">
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th>Target</th>
-              </tr>
-            </thead>
-            <tbody>
-              {["ETF", "FLEXI", "SMALL"].map((k) => (
-                <tr key={k}>
-                  <td className="ai-td-key">{k}</td>
-                  <td>{formatPct(finalRecommendation?.targetAllocation?.[k])}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {finalRecommendation?.allocationReasoning ? (
+        {finalRecommendation?.portfolioRiskView ? (
+          <div style={{ marginTop: 10 }}>
+            <div className="ai-card-title ai-chat-page__section-title">Verified Risk Snapshot</div>
+            <div className="ai-card-text ai-chat-page__body">
+              Overall weighted risk score: <strong>{Number(finalRecommendation?.weightedAverageRiskScore || 0).toFixed(2)} / 6</strong>
+            </div>
+            <div className="ai-card-text ai-chat-page__body">
+              Overall verified risk: <strong>{formatEnum(finalRecommendation?.portfolioRiskView?.overallRiskLevel)}</strong>
+            </div>
+            <div className="ai-card-text ai-chat-page__body">
+              Dominant risk bucket: <strong>{formatEnum(finalRecommendation?.portfolioRiskView?.dominantRiskLevel)}</strong>
+            </div>
+            <div className="ai-card-text ai-chat-page__body">
+              Verified by value: <strong>{formatPct(finalRecommendation?.portfolioRiskView?.officialCoverageByValuePct)}</strong>
+            </div>
+          </div>
+        ) : null}
+        {finalRecommendation?.currentAllocation ? (
+          <div style={{ marginTop: 10 }}>
+            <div className="ai-card-title ai-chat-page__section-title">Current Category Exposure</div>
+            <div className="ai-table-wrap">
+              <table className="ai-table">
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Exposure</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {["ETF", "FLEXI", "SMALL", "OTHER"].map((key) => (
+                    <tr key={key}>
+                      <td className="ai-td-key">{key}</td>
+                      <td>{formatPct(finalRecommendation?.currentAllocation?.[key])}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+        {finalRecommendation?.newInvestmentPlan?.categories?.length ? (
+          <div style={{ marginTop: 10 }}>
+            <div className="ai-card-title ai-chat-page__section-title">Fresh Money Advisory</div>
+            {finalRecommendation?.newInvestmentPlan?.note ? (
+              <div className="ai-card-text ai-chat-page__body" style={{ marginBottom: 8 }}>
+                {finalRecommendation.newInvestmentPlan.note}
+              </div>
+            ) : null}
+            <div className="ai-table-wrap">
+              <table className="ai-table">
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Guidance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {finalRecommendation.newInvestmentPlan.categories.map((item) => (
+                    <tr key={item.category}>
+                      <td className="ai-td-key">{item.category}</td>
+                      <td>{item.priority}</td>
+                      <td>{item.guidance}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+        {finalRecommendation?.schemeRiskExposure ? (
+          <div style={{ marginTop: 10 }}>
+            <div className="ai-card-title ai-chat-page__section-title">Scheme Risk Exposure</div>
+            <div className="ai-table-wrap">
+              <table className="ai-table">
+                <thead>
+                  <tr>
+                    <th>Risk Bucket</th>
+                    <th>Exposure</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(finalRecommendation?.schemeRiskExposure || {})
+                    .filter(([, value]) => Number(value) > 0)
+                    .map(([label, value]) => (
+                      <tr key={label}>
+                        <td className="ai-td-key">{formatEnum(label)}</td>
+                        <td>{formatPct(value)}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+        {finalRecommendation?.reasoning ? (
           <div className="ai-card-text ai-card-text--mono ai-chat-page__body" style={{ marginTop: 10 }}>
-            {finalRecommendation.allocationReasoning}
+            {finalRecommendation.reasoning}
+          </div>
+        ) : null}
+        {finalRecommendation?.riskProfileExplanation ? (
+          <div className="ai-card-text ai-card-text--mono ai-chat-page__body" style={{ marginTop: 8 }}>
+            <strong>Risk Profile Logic:</strong> {finalRecommendation.riskProfileExplanation}
           </div>
         ) : null}
         {analysis?.durationComment ? (
@@ -188,6 +293,30 @@ function AiChatPage() {
         {analysis?.riskTradeoff ? (
           <div className="ai-card-text ai-chat-page__body" style={{ marginTop: 4 }}>
             <strong>Risk Tradeoff:</strong> {analysis.riskTradeoff}
+          </div>
+        ) : null}
+        {finalRecommendation?.concentrationFlags?.length ? (
+          <div style={{ marginTop: 10 }}>
+            <div className="ai-card-title ai-chat-page__section-title">Concentration Checks</div>
+            <ol className="ai-steps">
+              {finalRecommendation.concentrationFlags.map((step, idx) => (
+                <li key={`flag-${idx}`} className="ai-step">
+                  {step}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
+        {finalRecommendation?.adviceForNewInvestment?.length ? (
+          <div style={{ marginTop: 10 }}>
+            <div className="ai-card-title ai-chat-page__section-title">Fresh Investment Approach</div>
+            <ol className="ai-steps">
+              {finalRecommendation.adviceForNewInvestment.map((step, idx) => (
+                <li key={`advice-${idx}`} className="ai-step">
+                  {step}
+                </li>
+              ))}
+            </ol>
           </div>
         ) : null}
         {finalRecommendation?.nextSteps?.length ? (
@@ -202,15 +331,6 @@ function AiChatPage() {
             </ol>
           </div>
         ) : null}
-        {pendingProposal ? (
-          <div className="ai-alert" style={{ marginTop: 10, background: "#fef9c3", border: "1px solid #fde68a", color: "#854d0e" }}>
-            Proposed change pending approval: ETF {pendingProposal.ETF}% / FLEXI {pendingProposal.FLEXI}% / SMALL {pendingProposal.SMALL}%. Reply with
-            {" "}
-            <strong>yes, apply</strong>
-            {" "}
-            to confirm.
-          </div>
-        ) : null}
       </div>
 
       <div className="ai-card ai-chat-page__panel" style={{ marginBottom: 16, minHeight: 260 }}>
@@ -223,6 +343,15 @@ function AiChatPage() {
             >
               <strong className="ai-chat-bubble__label">{m.role === "assistant" ? "AI" : "You"}:</strong>
               <span className="ai-chat-bubble__content">{m.content}</span>
+              {m.role === "assistant" && m.source ? (
+                <div style={{ marginTop: 6, fontSize: 11, color: "#6b7280" }}>
+                  {m.source === "GEMINI"
+                    ? `Source: Gemini${m.model ? ` (${m.model})` : ""}`
+                    : m.source === "RULE_BASED"
+                      ? "Source: Rule-based fallback"
+                      : "Source: System"}
+                </div>
+              ) : null}
             </div>
           ))}
           {loading ? (

@@ -22,6 +22,36 @@ const UserPortfolioSchema = new mongoose.Schema(
       type: String   // optional, can be filled later
     },
 
+    risk_level: {
+      type: String,
+      default: ""
+    },
+
+    risk_source_type: {
+      type: String,
+      default: ""
+    },
+
+    risk_source_url: {
+      type: String,
+      default: ""
+    },
+
+    risk_match_confidence: {
+      type: Number,
+      default: 0
+    },
+
+    risk_lookup_status: {
+      type: String,
+      default: ""
+    },
+
+    risk_lookup_query: {
+      type: String,
+      default: ""
+    },
+
     category: {
     type: String,
     enum: ["ETF", "FLEXI", "SMALL","OTHER"],// optional, can be filled later

@@ -9,6 +9,7 @@ import {
 } from "../services/api";
 import { useNavigate } from "react-router-dom";
 import Loader from "../components/Loader";
+import "./InputPage.css";
 export default function Input() {
   // -------------------------
   // State
@@ -66,6 +67,12 @@ export default function Input() {
         amfi_code: fund.amfi_code,
         nav: fund.nav,                // ✅ ADD
         current_value: fund.current_value,  // ✅ ADD
+        risk_level: fund.risk_level,
+        risk_source_type: fund.risk_source_type,
+        risk_source_url: fund.risk_source_url,
+        risk_match_confidence: fund.risk_match_confidence,
+        risk_lookup_status: fund.risk_lookup_status,
+        risk_lookup_query: fund.risk_lookup_query,
         category: fund.category
       }));
 
@@ -97,21 +104,47 @@ navigate(`/portfolio?session_id=${sessionId}`);
   // UI
   // -------------------------
   return (
-    <>
+    <div className="input-page">
     {loading && <Loader />} 
 
-      <CasUpload setPdfFile={setPdfFile} />
+      <div className="input-page__shell">
+        <section className="input-page__intro">
+          <span className="input-page__eyebrow">Portfolio setup</span>
+          <h1>Upload your CAS and set your investment goal</h1>
+          <p>
+            We’ll read your current holdings, combine them with your expected ROI and time horizon,
+            and then prepare the portfolio analysis experience.
+          </p>
 
-      <InvestmentForm
-        investmentData={investmentData}
-        setInvestmentData={setInvestmentData}
-      />
+          <div className="input-page__highlights">
+            <div className="input-page__highlight">
+              <strong>Current portfolio snapshot</strong>
+              <span>Import your latest CAS to capture category exposure.</span>
+            </div>
+            <div className="input-page__highlight">
+              <strong>Goal-based inputs</strong>
+              <span>Add expected return, duration, and capital for a better recommendation.</span>
+            </div>
+          </div>
+        </section>
 
-      <button onClick={handleSubmit} disabled={loading}>
-        {loading ? "Processing..." : "Submit"}
-      </button>
+        <section className="input-page__form-panel">
+          <CasUpload setPdfFile={setPdfFile} pdfFile={pdfFile} />
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
-    </>
+          <InvestmentForm
+            investmentData={investmentData}
+            setInvestmentData={setInvestmentData}
+          />
+
+          <div className="input-page__actions">
+            <button className="input-page__submit" onClick={handleSubmit} disabled={loading}>
+              {loading ? "Processing..." : "Generate Portfolio View"}
+            </button>
+
+            {error && <p className="input-page__error">{error}</p>}
+          </div>
+        </section>
+      </div>
+    </div>
   );
 }

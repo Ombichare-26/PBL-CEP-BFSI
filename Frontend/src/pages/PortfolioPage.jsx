@@ -250,6 +250,16 @@ useEffect(() => {
                       }, {});
 
                       const payload = {
+                        holdings: funds.map((fund) => ({
+                          scheme_name: fund.scheme_name,
+                          amfi_code: fund.amfi_code,
+                          category: fund.category,
+                          current_value: fund.current_value,
+                          units: fund.units,
+                          risk_level: fund.risk_level,
+                          risk_source_type: fund.risk_source_type,
+                          risk_source_url: fund.risk_source_url,
+                        })),
                         categoryPercentages: percentages,
                         durationMonths: userInput.duration_months,
                         investmentAmount: userInput.investable_amount,
@@ -259,10 +269,10 @@ useEffect(() => {
                       setAiResult(res);
                     } catch (e) {
                       console.error("AI evaluation failed", e);
-                      const message =
-                        e?.response?.data?.error ||
-                        e?.message ||
-                        "Failed to fetch recommendation";
+                      const isRateLimit = e?.response?.status === 429 || String(e?.message).includes("429");
+                      const message = isRateLimit
+                        ? "Gemini API limit reached. Please wait a moment and try again, or continue with the rule-based analysis below."
+                        : (e?.response?.data?.error || e?.message || "Failed to fetch recommendation");
                       setAiResult({ error: message });
                     } finally {
                       setAiLoading(false);
@@ -293,76 +303,61 @@ useEffect(() => {
 
                   {!!aiResult?.aiEvaluation && (
                     <>
-                      <div className="ai-badges">
-                        <span className="ai-badge ai-badge--neutral">
-                          Recommended: {formatEnum(aiResult.aiEvaluation.recommendedDirection) || "—"}
-                        </span>
-                        {!!aiResult.aiEvaluation.diversificationStatus && (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                        <div className="ai-badges" style={{ margin: 0 }}>
+                          <span className="ai-badge ai-badge--neutral">
+                            Recommended: {formatEnum(aiResult.aiEvaluation.recommendedDirection) || "—"}
+                          </span>
+                        </div>
+                        {aiResult.aiEvaluation.llm?.status === "SUCCESS" ? (
+                          <div style={{ fontSize: "11px", color: "#6b7280", fontStyle: "italic", display: "flex", alignItems: "center", gap: 4 }}>
+                            <span style={{ width: 8, height: 8, background: "#8b5cf6", borderRadius: "50%" }}></span>
+                            Powered by Gemini AI
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: "11px", color: "#9ca3af", fontStyle: "italic" }}>
+                            Rule-based Fallback (Gemini unavailable)
+                          </div>
+                        )}
+                      </div>
+
+                      {!!aiResult.aiEvaluation.diversificationStatus && (
+                        <div style={{ marginBottom: 12 }}>
                           <span
                             className="ai-badge"
                             style={getDiversificationStyle(aiResult.aiEvaluation.diversificationStatus)}
                           >
                             {formatEnum(aiResult.aiEvaluation.diversificationStatus)}
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      )}
 
                       <div className="ai-card">
                         <div className="ai-card-title">Summary</div>
-                        <div className="ai-card-text">
+                        <div className="ai-card-text" style={{ fontSize: "1.1rem", lineHeight: "1.5" }}>
                           {aiResult.aiEvaluation.summary || "—"}
                         </div>
                       </div>
 
-                      {(aiResult.aiEvaluation.currentAllocation ||
-                        aiResult.aiEvaluation.targetAllocation ||
-                        aiResult.aiEvaluation.allocationDiff) && (
+                      {!!aiResult.aiEvaluation.detailedExplanation?.newInvestmentReasoning && (
                         <div className="ai-card">
-                          <div className="ai-card-title">Allocation Plan</div>
-                          <div className="ai-table-wrap">
-                            <table className="ai-table">
-                              <thead>
-                                <tr>
-                                  <th>Category</th>
-                                  <th>Current</th>
-                                  <th>Target</th>
-                                  <th>Change</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {["ETF", "FLEXI", "SMALL"].map((key) => {
-                                  const current = aiResult.aiEvaluation.currentAllocation?.[key];
-                                  const target = aiResult.aiEvaluation.targetAllocation?.[key];
-                                  const diffNum =
-                                    Number(target) - Number(current);
-                                  const diffClass =
-                                    Number.isFinite(diffNum) && diffNum !== 0
-                                      ? diffNum > 0
-                                        ? "ai-diff ai-diff--pos"
-                                        : "ai-diff"
-                                      : "ai-diff";
-
-                                  return (
-                                    <tr key={key}>
-                                      <td className="ai-td-key">{key}</td>
-                                      <td>{formatPct(current)}</td>
-                                      <td>{formatPct(target)}</td>
-                                      <td className={diffClass}>{formatDiffPct(current, target)}</td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
+                          <div className="ai-card-title">AI Analysis</div>
+                          <div className="ai-card-text">
+                            {aiResult.aiEvaluation.detailedExplanation.newInvestmentReasoning}
                           </div>
                         </div>
                       )}
 
-                      {!!aiResult.aiEvaluation.detailedExplanation?.targetAllocationReasoning && (
-                        <div className="ai-card ai-card--soft">
-                          <div className="ai-card-title">Why This Target Allocation?</div>
-                          <div className="ai-card-text ai-card-text--mono">
-                            {aiResult.aiEvaluation.detailedExplanation.targetAllocationReasoning}
-                          </div>
+                      {aiResult.aiEvaluation.adviceForNewInvestment?.length > 0 && (
+                        <div className="ai-card">
+                          <div className="ai-card-title">Investment Strategy</div>
+                          <ol className="ai-steps">
+                            {aiResult.aiEvaluation.adviceForNewInvestment.map((item, index) => (
+                              <li key={index} className="ai-step">
+                                {item}
+                              </li>
+                            ))}
+                          </ol>
                         </div>
                       )}
 
@@ -379,32 +374,49 @@ useEffect(() => {
                         </div>
                       )}
 
-                      <div className="ai-card" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                        <button
-                          onClick={() => setShowAiModal(false)}
-                          style={{
-                            padding: "10px 16px",
-                            borderRadius: 8,
-                            border: "1px solid #16a34a",
-                            background: "#16a34a",
-                            color: "white",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Show Me Funds
-                        </button>
+                      {aiResult.aiEvaluation.concentrationFlags?.length > 0 && (
+                        <div className="ai-card" style={{ borderLeft: "4px solid #f59e0b", background: "#fffbeb" }}>
+                          <div className="ai-card-title" style={{ color: "#92400e" }}>Concentration Alerts</div>
+                          <ul className="ai-steps" style={{ listStyleType: "disc", paddingLeft: "20px" }}>
+                            {aiResult.aiEvaluation.concentrationFlags.map((item, index) => (
+                              <li key={index} className="ai-step" style={{ marginBottom: "8px" }}>
+                                {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      <div className="ai-card" style={{ display: "flex", gap: 10, flexWrap: "wrap", background: "transparent", boxShadow: "none", padding: 0 }}>
                         <button
                           onClick={openAiChatbot}
                           style={{
-                            padding: "10px 16px",
+                            padding: "12px 24px",
                             borderRadius: 8,
-                            border: "1px solid #2563eb",
+                            border: "none",
                             background: "#2563eb",
                             color: "white",
+                            fontWeight: "600",
                             cursor: "pointer",
+                            flex: 1
                           }}
                         >
-                          AI Chatbot
+                          Deep Dive with AI Chatbot
+                        </button>
+                        <button
+                          onClick={() => setShowAiModal(false)}
+                          style={{
+                            padding: "12px 24px",
+                            borderRadius: 8,
+                            border: "1px solid #e5e7eb",
+                            background: "white",
+                            color: "#374151",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                            flex: 1
+                          }}
+                        >
+                          Close
                         </button>
                       </div>
                     </>
@@ -450,17 +462,6 @@ function formatPct(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
   return `${Math.round(n)}%`;
-}
-
-function formatDiffPct(current, target) {
-  const c = Number(current);
-  const t = Number(target);
-  if (!Number.isFinite(c) || !Number.isFinite(t)) return "—";
-  const n = t - c;
-  if (!Number.isFinite(n)) return "—";
-  if (n < 0) return "-";
-  if (n === 0) return "0%";
-  return `+${Math.round(n)}%`;
 }
 
 export default PortfolioPage;
