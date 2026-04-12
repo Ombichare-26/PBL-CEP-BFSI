@@ -341,7 +341,6 @@ import pdfplumber
 import json
 import requests
 import re
-import time
 try:
     from bs4 import BeautifulSoup
 except Exception:
@@ -359,12 +358,9 @@ from collections import defaultdict
 
 import sys
 
-if len(sys.argv) < 2:
-    print("PDF path not provided", file=sys.stderr)
-    sys.exit(1)
-
-PDF_PATH = sys.argv[1]
+PDF_PATH = sys.argv[1] if len(sys.argv) >= 2 else None
 AMFI_URL = "https://www.amfiindia.com/spages/NAVAll.txt"
+_AMFI_DATA_CACHE = None
 
 # -----------------------------
 # NORMALIZATION CONFIG
@@ -645,6 +641,10 @@ def lookup_riskometer_from_google(scheme_name: str):
 # =========================================================
 
 def fetch_amfi_data():
+    global _AMFI_DATA_CACHE
+    if _AMFI_DATA_CACHE is not None:
+        return _AMFI_DATA_CACHE
+
     res = requests.get(AMFI_URL, headers=HEADERS, timeout=20)
     res.raise_for_status()
 
@@ -665,6 +665,7 @@ def fetch_amfi_data():
             "tokens": tokenize(parts[3]),
             "core": strip_plan_words(parts[3])
         })
+    _AMFI_DATA_CACHE = schemes
     return schemes
 
 # =========================================================
@@ -756,12 +757,19 @@ def get_category_from_amfi(name: str):
 # MAIN EXECUTION
 # =========================================================
 
-if __name__ == "__main__":
+def build_default_risk_info(scheme_name: str):
+    return {
+        "risk_level": "",
+        "risk_source_type": "",
+        "risk_source_url": "",
+        "risk_lookup_status": "SKIPPED",
+        "risk_lookup_query": scheme_name,
+    }
 
-    portfolio = extract_tables_from_pdf(PDF_PATH)
+def extract_portfolio(pdf_path: str, include_risk_lookup: bool = False):
+    portfolio = extract_tables_from_pdf(pdf_path)
     if not portfolio:
-        print(json.dumps([]))
-        sys.exit(0)
+        return []
 
     amfi_data = fetch_amfi_data()
 
@@ -776,12 +784,18 @@ if __name__ == "__main__":
             holding["amfi_code"] = amfi["amfi_code"]
             holding["category"] = cat_amfi if cat_pdf == cat_amfi else "OTHER"
             holding["confidence"] = amfi["confidence"]
-            risk_info = lookup_riskometer_from_google(amfi["amfi_name"])
+            lookup_target = amfi["amfi_name"]
         else:
             holding["amfi_code"] = "NOT_FOUND"
             holding["category"] = "OTHER"
             holding["confidence"] = 0.0
-            risk_info = lookup_riskometer_from_google(scheme)
+            lookup_target = scheme
+
+        risk_info = (
+            lookup_riskometer_from_google(lookup_target)
+            if include_risk_lookup
+            else build_default_risk_info(lookup_target)
+        )
 
         holding["risk_level"] = risk_info["risk_level"]
         holding["risk_source_type"] = risk_info["risk_source_type"]
@@ -789,4 +803,11 @@ if __name__ == "__main__":
         holding["risk_lookup_status"] = risk_info["risk_lookup_status"]
         holding["risk_lookup_query"] = risk_info["risk_lookup_query"]
 
-    print(json.dumps(portfolio))
+    return portfolio
+
+if __name__ == "__main__":
+    if not PDF_PATH:
+        print("PDF path not provided", file=sys.stderr)
+        sys.exit(1)
+
+    print(json.dumps(extract_portfolio(PDF_PATH)))

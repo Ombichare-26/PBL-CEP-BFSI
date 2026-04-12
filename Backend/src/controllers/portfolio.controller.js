@@ -201,17 +201,27 @@ const data = portfolio.map((doc) => {
 
   fund.category = fund.category || "OTHER";
   fund.master_category = masterEntry?.category || "";
-  const verifiedRiskSource = schemeRiskEntry?.riskSource && schemeRiskEntry?.riskSource !== "DERIVED_HISTORY_MODEL"
-    ? schemeRiskEntry
-    : null;
+  const normalizedSchemeRiskLabel = String(schemeRiskEntry?.riskLabel || "").trim().toUpperCase();
+  const hasUsableSchemeRisk = normalizedSchemeRiskLabel && normalizedSchemeRiskLabel !== "UNKNOWN";
 
-  fund.risk_level = verifiedRiskSource?.riskLabel || masterEntry?.risk_level || fund.risk_level || "";
+  fund.risk_level =
+    (hasUsableSchemeRisk ? schemeRiskEntry?.riskLabel : "")
+    || masterEntry?.risk_level
+    || fund.risk_level
+    || "";
   fund.risk_source_type =
-    verifiedRiskSource?.riskSource
+    (hasUsableSchemeRisk ? schemeRiskEntry?.riskSource : "")
     || masterEntry?.risk_source_type
     || (masterEntry?.risk_level ? "MASTER_CACHE" : fund.risk_source_type || "");
-  fund.risk_source_url = verifiedRiskSource?.riskSourceUrl || masterEntry?.risk_source_url || fund.risk_source_url || "";
-  fund.risk_as_of_date = verifiedRiskSource?.riskAsOfDate || masterEntry?.risk_as_of_date || null;
+  fund.risk_source_url =
+    (hasUsableSchemeRisk ? schemeRiskEntry?.riskSourceUrl : "")
+    || masterEntry?.risk_source_url
+    || fund.risk_source_url
+    || "";
+  fund.risk_as_of_date =
+    (hasUsableSchemeRisk ? schemeRiskEntry?.riskAsOfDate : null)
+    || masterEntry?.risk_as_of_date
+    || null;
   fund.risk_last_verified_at = masterEntry?.risk_last_verified_at || null;
   fund.derived_risk_score = schemeRiskEntry?.derivedRiskScore ?? null;
   fund.volatility_pct = schemeRiskEntry?.volatilityPct ?? null;

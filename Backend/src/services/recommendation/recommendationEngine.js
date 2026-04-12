@@ -288,7 +288,8 @@ export async function analyzePortfolio({
 
   const schemeRiskMap = await fetchSchemeRiskMap(
     focusedHoldings.map((holding) => holding.amfi_code),
-    focusedHoldings
+    focusedHoldings,
+    { allowGemini: false }
   );
   const riskSnapshot = buildHoldingRiskSnapshot(focusedHoldings, schemeRiskMap);
   const coverageStats = buildCoverageStats(riskSnapshot);

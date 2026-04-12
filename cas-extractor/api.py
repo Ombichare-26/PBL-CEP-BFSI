@@ -1,15 +1,19 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import subprocess
 import tempfile
-import json
 import os
-import sys
 import requests
 from datetime import datetime, timedelta
 from math import sqrt
+from threading import Lock
+
+from cas_extractor import extract_portfolio
+
 app = FastAPI()
 RISK_HISTORY_WINDOW_DAYS = 365 * 5
+FUND_HISTORY_CACHE_TTL_SECONDS = 300
+_fund_history_cache = {}
+_fund_history_cache_lock = Lock()
 
 
 
@@ -31,42 +35,21 @@ async def extract_cas(file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files allowed")
 
+    tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             tmp.write(await file.read())
             tmp_path = tmp.name
 
-        # Get the directory where this script is located
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        cas_extractor_path = os.path.join(script_dir, "cas_extractor.py")
-        
-        result = subprocess.run(
-            [sys.executable, cas_extractor_path, tmp_path],
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=script_dir  # Set working directory to script location
-        )
-
-        os.remove(tmp_path)
-
-        return json.loads(result.stdout)
-
-    except FileNotFoundError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Python interpreter not found: {e}. Please ensure Python is installed and in PATH."
-        )
-    except subprocess.CalledProcessError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"CAS extraction failed: {e.stderr or e.stdout or 'Unknown error'}"
-        )
+        return extract_portfolio(tmp_path, include_risk_lookup=False)
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Unexpected error: {str(e)}"
         )
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 def normalize_category_risk_score(category: str) -> int:
     value = str(category or "").strip().upper()
@@ -185,6 +168,13 @@ def derive_risk_metrics(category: str, nav_points: list[float], source_url: str 
 @app.get("/fund-history/{amfi_code}")
 async def get_fund_history(amfi_code: str, period: str = "1m"):
     try:
+        cache_key = (str(amfi_code).strip(), str(period).strip().lower())
+        now = datetime.utcnow()
+        with _fund_history_cache_lock:
+            cached_entry = _fund_history_cache.get(cache_key)
+            if cached_entry and cached_entry["expires_at"] > now:
+                return cached_entry["payload"]
+
         url = f"https://api.mfapi.in/mf/{amfi_code}"
         res = requests.get(url, timeout=10)
 
@@ -266,12 +256,18 @@ async def get_fund_history(amfi_code: str, period: str = "1m"):
             else None
         )
 
-        return {
+        payload = {
             "data": filtered,
             "currentNav": latest_nav,
             "dayChange": round(day_change, 2),
             "riskMetrics": risk_metrics,
         }
+        with _fund_history_cache_lock:
+            _fund_history_cache[cache_key] = {
+                "payload": payload,
+                "expires_at": now + timedelta(seconds=FUND_HISTORY_CACHE_TTL_SECONDS),
+            }
+        return payload
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

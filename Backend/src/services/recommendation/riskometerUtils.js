@@ -1,5 +1,5 @@
 import AMFIMaster from "../../models/AMFI_Master_Fund.model.js";
-import { lookupOfficialRiskometerWithGemini } from "./geminiRecommendation.service.js";
+import { lookupOfficialRiskometersWithGemini } from "./geminiRecommendation.service.js";
 
 export const RISK_LABELS = [
   "LOW",
@@ -32,9 +32,42 @@ const SCORE_TO_RISK_LABEL = {
 
 const derivedHistoryRiskCache = new Map();
 const geminiRiskCache = new Map();
+const geminiRiskInFlight = new Map();
 const RISK_HISTORY_WINDOW_DAYS = 365 * 5;
 const GEMINI_RISK_CACHE_TTL_DAYS = Number(process.env.GEMINI_RISK_CACHE_TTL_DAYS) || 30;
 const GEMINI_RISK_FAILURE_TTL_HOURS = Number(process.env.GEMINI_RISK_FAILURE_TTL_HOURS) || 24;
+const GEMINI_RISK_BATCH_SIZE = Number(process.env.GEMINI_RISK_BATCH_SIZE) || 50;
+const GEMINI_RISK_MIN_INTERVAL_MS = Number(process.env.GEMINI_RISK_MIN_INTERVAL_MS) || 4000;
+let geminiRiskQueue = Promise.resolve();
+let lastGeminiRiskLookupAt = 0;
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function enqueueGeminiRiskLookup(task) {
+  const scheduled = geminiRiskQueue.then(async () => {
+    const now = Date.now();
+    const waitMs = Math.max(0, lastGeminiRiskLookupAt + GEMINI_RISK_MIN_INTERVAL_MS - now);
+    if (waitMs > 0) {
+      await wait(waitMs);
+    }
+    lastGeminiRiskLookupAt = Date.now();
+    return task();
+  });
+
+  geminiRiskQueue = scheduled.catch(() => {});
+  return scheduled;
+}
+
+function chunkArray(values = [], size = 1) {
+  const normalizedSize = Math.max(1, Number(size) || 1);
+  const chunks = [];
+  for (let index = 0; index < values.length; index += normalizedSize) {
+    chunks.push(values.slice(index, index + normalizedSize));
+  }
+  return chunks;
+}
 
 export function toNumber(value, fallback = 0) {
   const n = Number(value);
@@ -387,47 +420,92 @@ export async function fetchHistoricalRiskMetrics(amfiCode, { category = "" } = {
   }
 }
 
-async function fetchOfficialRiskometerWithGemini({
-  amfiCode = "",
-  schemeName = "",
-  fundHouse = "",
-  category = "",
-} = {}) {
-  const code = String(amfiCode || "").trim();
-  const name = String(schemeName || "").trim();
-  const cacheKey = `${code}:${name}`.toUpperCase();
+export async function fetchOfficialRiskometersWithGeminiBatch(funds = []) {
+  const normalizedFunds = (Array.isArray(funds) ? funds : [])
+    .map((fund) => ({
+      amfiCode: String(fund?.amfiCode || fund?.amfi_code || "").trim(),
+      schemeName: String(fund?.schemeName || fund?.scheme_name || "").trim(),
+      fundHouse: String(fund?.fundHouse || fund?.fund_house || "").trim(),
+      category: String(fund?.category || "").trim(),
+    }))
+    .filter((fund) => fund.schemeName);
 
-  if (!process.env.GEMINI_API_KEY || !name) return null;
-  if (geminiRiskCache.has(cacheKey)) {
-    return geminiRiskCache.get(cacheKey);
+  const resultMap = new Map();
+  if (!process.env.GEMINI_API_KEY || !normalizedFunds.length) return resultMap;
+
+  const uncachedFunds = [];
+  for (const fund of normalizedFunds) {
+    const cacheKey = `${fund.amfiCode}:${fund.schemeName}`.toUpperCase();
+    if (geminiRiskCache.has(cacheKey)) {
+      resultMap.set(cacheKey, geminiRiskCache.get(cacheKey));
+      continue;
+    }
+    uncachedFunds.push({ ...fund, cacheKey });
   }
 
-  try {
-    const lookup = await lookupOfficialRiskometerWithGemini({
-      schemeName: name,
-      amfiCode: code,
-      fundHouse,
-      category,
-    });
+  for (const batch of chunkArray(uncachedFunds, GEMINI_RISK_BATCH_SIZE)) {
+    const batchPromise = enqueueGeminiRiskLookup(async () => lookupOfficialRiskometersWithGemini(batch));
 
-    const normalized = lookup?.verified && normalizeRiskLabel(lookup.riskLabel) !== "UNKNOWN"
-      ? {
-          riskLabel: normalizeRiskLabel(lookup.riskLabel),
-          rawRiskLabel: lookup.riskLabel,
-          riskSource: lookup.sourceName ? `GEMINI_THIRD_PARTY_${lookup.sourceName}` : "GEMINI_LOOKUP",
-          riskSourceUrl: lookup.sourceUrl || "",
-          riskAsOfDate: null,
-          riskAsOfDateText: lookup.asOfDateText || "",
-          riskVerificationStatus: "THIRD_PARTY_FALLBACK",
+    for (const fund of batch) {
+      geminiRiskInFlight.set(fund.cacheKey, batchPromise.then((lookups) => {
+        const lookup = lookups[batch.findIndex((entry) => entry.cacheKey === fund.cacheKey)];
+        if (lookup?.verified && normalizeRiskLabel(lookup.riskLabel) !== "UNKNOWN") {
+          return {
+            riskLabel: normalizeRiskLabel(lookup.riskLabel),
+            rawRiskLabel: lookup.riskLabel,
+            riskSource: lookup.sourceName ? `GEMINI_THIRD_PARTY_${lookup.sourceName}` : "GEMINI_LOOKUP",
+            riskSourceUrl: lookup.sourceUrl || "",
+            riskAsOfDate: null,
+            riskAsOfDateText: lookup.asOfDateText || "",
+            riskVerificationStatus: "THIRD_PARTY_FALLBACK",
+            lookupStatus: lookup.lookupStatus || "FOUND",
+          };
         }
-      : null;
+        return {
+          lookupStatus: lookup?.lookupStatus || "NOT_FOUND",
+        };
+      }));
+    }
 
-    geminiRiskCache.set(cacheKey, normalized);
-    return normalized;
-  } catch {
-    geminiRiskCache.set(cacheKey, null);
-    return null;
+    try {
+      const lookups = await batchPromise;
+      batch.forEach((fund, index) => {
+        const lookup = lookups[index];
+        const normalized = lookup?.verified && normalizeRiskLabel(lookup.riskLabel) !== "UNKNOWN"
+          ? {
+              riskLabel: normalizeRiskLabel(lookup.riskLabel),
+              rawRiskLabel: lookup.riskLabel,
+              riskSource: lookup.sourceName ? `GEMINI_THIRD_PARTY_${lookup.sourceName}` : "GEMINI_LOOKUP",
+              riskSourceUrl: lookup.sourceUrl || "",
+              riskAsOfDate: null,
+              riskAsOfDateText: lookup.asOfDateText || "",
+              riskVerificationStatus: "THIRD_PARTY_FALLBACK",
+              lookupStatus: lookup.lookupStatus || "FOUND",
+            }
+          : {
+              lookupStatus: lookup?.lookupStatus || "NOT_FOUND",
+            };
+
+        if (normalized.lookupStatus !== "LOOKUP_ERROR") {
+          geminiRiskCache.set(fund.cacheKey, normalized);
+        }
+        resultMap.set(fund.cacheKey, normalized);
+      });
+    } catch (error) {
+      batch.forEach((fund) => {
+        resultMap.set(fund.cacheKey, {
+          lookupStatus: "LOOKUP_ERROR",
+          lookupError: String(error?.message || error || ""),
+        });
+      });
+    } finally {
+      batch.forEach((fund) => {
+        geminiRiskInFlight.delete(fund.cacheKey);
+      });
+    }
   }
+
+  return resultMap;
 }
 
 async function cacheGeminiRiskometerResult({
@@ -462,13 +540,16 @@ async function cacheGeminiRiskometerResult({
         $set: setPayload,
         $setOnInsert: {
           amfi_code: code,
-          schema_name: schemeName || "Unknown Scheme",
         },
       },
       { upsert: true }
     );
-  } catch {
-    // Cache failure should not block portfolio analysis.
+  } catch (error) {
+    console.error("Failed to cache Gemini riskometer result", {
+      amfiCode: code,
+      schemeName,
+      message: error?.message || String(error),
+    });
   }
 }
 
@@ -495,7 +576,7 @@ async function cacheGeminiRiskometerFailure({
         },
         $setOnInsert: {
           amfi_code: code,
-          schema_name: schemeName || "Unknown Scheme",
+          ...(schemeName ? { schema_name: schemeName } : {}),
         },
       },
       { upsert: true }
@@ -505,7 +586,8 @@ async function cacheGeminiRiskometerFailure({
   }
 }
 
-export async function fetchSchemeRiskMap(amfiCodes = [], holdings = []) {
+export async function fetchSchemeRiskMap(amfiCodes = [], holdings = [], options = {}) {
+  const allowGemini = options.allowGemini !== false;
   const uniqueCodes = [...new Set((amfiCodes || []).map((code) => String(code || "").trim()).filter(Boolean))];
   if (!uniqueCodes.length) return new Map();
   const holdingByCode = new Map(
@@ -531,6 +613,7 @@ export async function fetchSchemeRiskMap(amfiCodes = [], holdings = []) {
 
   const map = new Map();
   const resolvedDocs = [];
+  const docsNeedingGemini = [];
   for (const doc of docs) {
     const officialRiskLabel = normalizeRiskLabel(doc.risk_level);
 
@@ -570,38 +653,10 @@ export async function fetchSchemeRiskMap(amfiCodes = [], holdings = []) {
       continue;
     }
 
-    const geminiOfficialRisk = await fetchOfficialRiskometerWithGemini({
-      amfiCode: doc.amfi_code,
-      schemeName: doc.schema_name,
-      fundHouse: doc.fund_house,
-      category: doc.category,
-    });
-
-    if (geminiOfficialRisk) {
-      await cacheGeminiRiskometerResult({
-        amfiCode: doc.amfi_code,
-        schemeName: doc.schema_name || "",
-        fundHouse: doc.fund_house || "",
-        category: doc.category || "",
-        risk: geminiOfficialRisk,
-      });
-
-      resolvedDocs.push({
-        amfiCode: String(doc.amfi_code),
-        schemeName: doc.schema_name || "",
-        category: doc.category || "",
-        fundHouse: doc.fund_house || "",
-        ...geminiOfficialRisk,
-      });
+    if (allowGemini) {
+      docsNeedingGemini.push(doc);
       continue;
     }
-
-    await cacheGeminiRiskometerFailure({
-      amfiCode: doc.amfi_code,
-      schemeName: doc.schema_name || "",
-      fundHouse: doc.fund_house || "",
-      category: doc.category || "",
-    });
 
     const derived = await fetchHistoricalRiskMetrics(doc.amfi_code, { category: doc.category });
     resolvedDocs.push({
@@ -620,6 +675,79 @@ export async function fetchSchemeRiskMap(amfiCodes = [], holdings = []) {
       volatilityPct: derived?.volatilityPct ?? null,
       maxDrawdownPct: derived?.maxDrawdownPct ?? null,
     });
+  }
+
+  if (allowGemini && docsNeedingGemini.length) {
+    const geminiResults = await lookupOfficialRiskometersWithGemini(
+      docsNeedingGemini.map((doc) => ({
+        schemeName: doc.schema_name,
+        amfiCode: doc.amfi_code,
+        fundHouse: doc.fund_house,
+        category: doc.category,
+      }))
+    );
+
+    for (const [index, doc] of docsNeedingGemini.entries()) {
+      const lookup = geminiResults[index];
+      const geminiOfficialRisk = lookup?.verified && normalizeRiskLabel(lookup?.riskLabel) !== "UNKNOWN"
+        ? {
+            riskLabel: normalizeRiskLabel(lookup.riskLabel),
+            rawRiskLabel: lookup.riskLabel,
+            riskSource: lookup.sourceName ? `GEMINI_THIRD_PARTY_${lookup.sourceName}` : "GEMINI_LOOKUP",
+            riskSourceUrl: lookup.sourceUrl || "",
+            riskAsOfDate: null,
+            riskAsOfDateText: lookup.asOfDateText || "",
+            riskVerificationStatus: "THIRD_PARTY_FALLBACK",
+            lookupStatus: lookup.lookupStatus || "FOUND",
+          }
+        : null;
+
+      if (geminiOfficialRisk?.riskLabel) {
+        await cacheGeminiRiskometerResult({
+          amfiCode: doc.amfi_code,
+          schemeName: doc.schema_name || "",
+          fundHouse: doc.fund_house || "",
+          category: doc.category || "",
+          risk: geminiOfficialRisk,
+        });
+
+        resolvedDocs.push({
+          amfiCode: String(doc.amfi_code),
+          schemeName: doc.schema_name || "",
+          category: doc.category || "",
+          fundHouse: doc.fund_house || "",
+          ...geminiOfficialRisk,
+        });
+        continue;
+      }
+
+      if (lookup?.lookupStatus !== "LOOKUP_ERROR") {
+        await cacheGeminiRiskometerFailure({
+          amfiCode: doc.amfi_code,
+          schemeName: doc.schema_name || "",
+          fundHouse: doc.fund_house || "",
+          category: doc.category || "",
+        });
+      }
+
+      const derived = await fetchHistoricalRiskMetrics(doc.amfi_code, { category: doc.category });
+      resolvedDocs.push({
+        amfiCode: String(doc.amfi_code),
+        schemeName: doc.schema_name || "",
+        category: doc.category || derived?.category || "",
+        fundHouse: doc.fund_house || "",
+        riskLabel: normalizeRiskLabel(derived?.riskLevel),
+        rawRiskLabel: derived?.riskLevel || "",
+        riskSource: derived?.sourceType || "UNAVAILABLE",
+        riskSourceUrl: derived?.sourceUrl || "",
+        riskAsOfDate: derived?.asOfDate || null,
+        riskAsOfDateText: "",
+        riskVerificationStatus: "DERIVED_ANALYTICS",
+        derivedRiskScore: derived?.derivedRiskScore || 0,
+        volatilityPct: derived?.volatilityPct ?? null,
+        maxDrawdownPct: derived?.maxDrawdownPct ?? null,
+      });
+    }
   }
 
   for (const entry of resolvedDocs) {
@@ -642,42 +770,13 @@ export async function fetchSchemeRiskMap(amfiCodes = [], holdings = []) {
 
   const unresolvedCodes = uniqueCodes.filter((code) => !map.has(code));
   if (unresolvedCodes.length) {
+    const unresolvedNeedingGemini = [];
     for (const code of unresolvedCodes) {
       const holding = holdingByCode.get(code);
-      const geminiOfficialRisk = await fetchOfficialRiskometerWithGemini({
-        amfiCode: code,
-        schemeName: holding?.scheme_name || holding?.schemeName || "",
-        fundHouse: holding?.fund_house || holding?.fundHouse || "",
-        category: holding?.masterCategory || holding?.category || "",
-      });
-
-      if (geminiOfficialRisk) {
-        await cacheGeminiRiskometerResult({
-          amfiCode: code,
-          schemeName: holding?.scheme_name || holding?.schemeName || "",
-          fundHouse: holding?.fund_house || holding?.fundHouse || "",
-          category: holding?.masterCategory || holding?.category || "",
-          risk: geminiOfficialRisk,
-        });
-
-        map.set(code, {
-          schemeName: holding?.scheme_name || holding?.schemeName || "",
-          category: holding?.masterCategory || holding?.category || "",
-          fundHouse: holding?.fund_house || holding?.fundHouse || "",
-          ...geminiOfficialRisk,
-          derivedRiskScore: 0,
-          volatilityPct: null,
-          maxDrawdownPct: null,
-        });
+      if (allowGemini) {
+        unresolvedNeedingGemini.push({ code, holding });
         continue;
       }
-
-      await cacheGeminiRiskometerFailure({
-        amfiCode: code,
-        schemeName: holding?.scheme_name || holding?.schemeName || "",
-        fundHouse: holding?.fund_house || holding?.fundHouse || "",
-        category: holding?.masterCategory || holding?.category || "",
-      });
 
       const derived = await fetchHistoricalRiskMetrics(code, {
         category: holding?.masterCategory || holding?.category || "",
@@ -698,6 +797,85 @@ export async function fetchSchemeRiskMap(amfiCodes = [], holdings = []) {
         volatilityPct: derived?.volatilityPct ?? null,
         maxDrawdownPct: derived?.maxDrawdownPct ?? null,
       });
+    }
+
+    if (allowGemini && unresolvedNeedingGemini.length) {
+      const geminiResults = await lookupOfficialRiskometersWithGemini(
+        unresolvedNeedingGemini.map(({ code, holding }) => ({
+          schemeName: holding?.scheme_name || holding?.schemeName || "",
+          amfiCode: code,
+          fundHouse: holding?.fund_house || holding?.fundHouse || "",
+          category: holding?.masterCategory || holding?.category || "",
+        }))
+      );
+
+      for (const [index, unresolved] of unresolvedNeedingGemini.entries()) {
+        const { code, holding } = unresolved;
+        const schemeName = holding?.scheme_name || holding?.schemeName || "";
+        const lookup = geminiResults[index];
+        const geminiOfficialRisk = lookup?.verified && normalizeRiskLabel(lookup?.riskLabel) !== "UNKNOWN"
+          ? {
+              riskLabel: normalizeRiskLabel(lookup.riskLabel),
+              rawRiskLabel: lookup.riskLabel,
+              riskSource: lookup.sourceName ? `GEMINI_THIRD_PARTY_${lookup.sourceName}` : "GEMINI_LOOKUP",
+              riskSourceUrl: lookup.sourceUrl || "",
+              riskAsOfDate: null,
+              riskAsOfDateText: lookup.asOfDateText || "",
+              riskVerificationStatus: "THIRD_PARTY_FALLBACK",
+              lookupStatus: lookup.lookupStatus || "FOUND",
+            }
+          : null;
+
+        if (geminiOfficialRisk?.riskLabel) {
+          await cacheGeminiRiskometerResult({
+            amfiCode: code,
+            schemeName,
+            fundHouse: holding?.fund_house || holding?.fundHouse || "",
+            category: holding?.masterCategory || holding?.category || "",
+            risk: geminiOfficialRisk,
+          });
+
+          map.set(code, {
+            schemeName,
+            category: holding?.masterCategory || holding?.category || "",
+            fundHouse: holding?.fund_house || holding?.fundHouse || "",
+            ...geminiOfficialRisk,
+            derivedRiskScore: 0,
+            volatilityPct: null,
+            maxDrawdownPct: null,
+          });
+          continue;
+        }
+
+        if (lookup?.lookupStatus !== "LOOKUP_ERROR") {
+          await cacheGeminiRiskometerFailure({
+            amfiCode: code,
+            schemeName,
+            fundHouse: holding?.fund_house || holding?.fundHouse || "",
+            category: holding?.masterCategory || holding?.category || "",
+          });
+        }
+
+        const derived = await fetchHistoricalRiskMetrics(code, {
+          category: holding?.masterCategory || holding?.category || "",
+        });
+
+        map.set(code, {
+          schemeName,
+          category: holding?.masterCategory || holding?.category || derived?.category || "",
+          fundHouse: "",
+          riskLabel: normalizeRiskLabel(derived?.riskLevel),
+          rawRiskLabel: derived?.riskLevel || "",
+          riskSource: derived?.sourceType || "UNAVAILABLE",
+          riskSourceUrl: derived?.sourceUrl || "",
+          riskAsOfDate: derived?.asOfDate || null,
+          riskAsOfDateText: "",
+          riskVerificationStatus: "DERIVED_ANALYTICS",
+          derivedRiskScore: derived?.derivedRiskScore || 0,
+          volatilityPct: derived?.volatilityPct ?? null,
+          maxDrawdownPct: derived?.maxDrawdownPct ?? null,
+        });
+      }
     }
   }
 

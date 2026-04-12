@@ -2,12 +2,24 @@ function getGeminiApiKey() {
   return process.env.GEMINI_API_KEY || "";
 }
 
+function getGeminiApiKeys() {
+  return [
+    process.env.GEMINI_API_KEY || "",
+    process.env.GEMINI_API_KEY_2 || "",
+    process.env.GEMINI_API_KEY_FALLBACK || "",
+  ].filter((value, index, list) => value && list.indexOf(value) === index);
+}
+
 function getGeminiModel() {
   return process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
 }
 
 function getGeminiTimeoutMs() {
   return Number(process.env.GEMINI_TIMEOUT_MS) || 45000;
+}
+
+function getGeminiRiskometerMaxOutputTokens() {
+  return Number(process.env.GEMINI_RISKOMETER_MAX_OUTPUT_TOKENS) || 3000;
 }
 
 const VALID_RISK_LABELS = new Set([
@@ -141,69 +153,79 @@ async function callGeminiJson({
   temperature = 0.2,
   maxOutputTokens = 512,
 }) {
-  const apiKey = getGeminiApiKey();
+  const apiKeys = getGeminiApiKeys();
   const model = getGeminiModel();
 
-  if (!apiKey) {
+  if (!apiKeys.length) {
     throw new Error("GEMINI_API_KEY is missing.");
   }
 
   const performCall = async () => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), getGeminiTimeoutMs());
+    let lastError;
+    for (const apiKey of apiKeys) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), getGeminiTimeoutMs());
 
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          systemInstruction: system
-            ? {
-                parts: [{ text: system }],
-              }
-            : undefined,
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: prompt }],
-            },
-          ],
-          tools: useSearch ? [{ google_search: {} }] : undefined,
-          generationConfig: {
-            temperature,
-            maxOutputTokens,
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
           },
-        }),
-      });
+          signal: controller.signal,
+          body: JSON.stringify({
+            systemInstruction: system
+              ? {
+                  parts: [{ text: system }],
+                }
+              : undefined,
+            contents: [
+              {
+                role: "user",
+                parts: [{ text: prompt }],
+              },
+            ],
+            tools: useSearch ? [{ google_search: {} }] : undefined,
+            generationConfig: {
+              temperature,
+              maxOutputTokens,
+            },
+          }),
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "");
-        const status = response.status;
-        throw new Error(`Gemini returned ${status} ${response.statusText}. ${errorText.slice(0, 300)}`);
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => "");
+          const status = response.status;
+          const error = new Error(`Gemini returned ${status} ${response.statusText}. ${errorText.slice(0, 300)}`);
+          if (status === 429) {
+            lastError = error;
+            continue;
+          }
+          throw error;
+        }
+
+        const payload = await response.json();
+        const text = getGeminiText(payload);
+        const parsed = extractJsonObject(text);
+
+        if (!parsed || typeof parsed !== "object") {
+          throw new Error("Gemini returned non-JSON content.");
+        }
+
+        return {
+          parsed,
+          groundingUrls: getGroundingUrls(payload),
+          rawText: text,
+        };
+      } finally {
+        clearTimeout(timeoutId);
       }
-
-      const payload = await response.json();
-      const text = getGeminiText(payload);
-      const parsed = extractJsonObject(text);
-
-      if (!parsed || typeof parsed !== "object") {
-        throw new Error("Gemini returned non-JSON content.");
-      }
-
-      return {
-        parsed,
-        groundingUrls: getGroundingUrls(payload),
-        rawText: text,
-      };
-    } finally {
-      clearTimeout(timeoutId);
     }
+
+    throw lastError || new Error("Gemini request failed.");
   };
 
   return callGeminiWithRetry(performCall);
@@ -287,6 +309,82 @@ function isSpecificThirdPartySourceUrl(url = "", source = {}) {
   } catch {
     return false;
   }
+}
+
+function tokenizeForUrlMatch(value = "") {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length >= 3);
+}
+
+function scoreSourceUrlForFund(url = "", fund = {}) {
+  const raw = String(url || "").toLowerCase();
+  if (!raw) return -1;
+
+  let score = 0;
+  const amfiCode = String(fund?.amfiCode || "").trim();
+  if (amfiCode && raw.includes(amfiCode.toLowerCase())) score += 6;
+
+  const schemeTokens = tokenizeForUrlMatch(fund?.schemeName);
+  for (const token of schemeTokens) {
+    if (raw.includes(token)) score += 1;
+  }
+
+  if (raw.includes("moneycontrol.com")) score += 2;
+  if (raw.includes("/mutual-funds/")) score += 2;
+  if (raw.includes("/nav/")) score += 1;
+
+  return score;
+}
+
+async function verifyReachableSourceUrl(url = "") {
+  const raw = String(url || "").trim();
+  if (!raw || !isThirdPartyFallbackSourceUrl(raw)) return "";
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(raw, {
+      method: "GET",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; FineRcom/1.0)",
+      },
+    });
+
+    if (!response.ok) return "";
+    return String(response.url || raw).trim();
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function resolveTrustedSourceUrl({
+  candidateUrl = "",
+  groundingUrls = [],
+  fund = {},
+}) {
+  const rankedUrls = [...new Set(
+    [candidateUrl, ...(Array.isArray(groundingUrls) ? groundingUrls : [])]
+      .map((url) => String(url || "").trim())
+      .filter((url) => isThirdPartyFallbackSourceUrl(url))
+  )]
+    .map((url) => ({ url, score: scoreSourceUrlForFund(url, fund) }))
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.url);
+
+  for (const url of rankedUrls) {
+    const verifiedUrl = await verifyReachableSourceUrl(url);
+    if (verifiedUrl) return verifiedUrl;
+  }
+
+  return "";
 }
 
 function buildInitialPrompt({ analysisResult }) {
@@ -499,93 +597,141 @@ export async function lookupOfficialRiskometerWithGemini({
   fundHouse = "",
   category = "",
 }) {
-  const cleanSchemeName = String(schemeName || "").trim();
-  if (!cleanSchemeName) {
-    return null;
+  const results = await lookupOfficialRiskometersWithGemini([
+    { schemeName, amfiCode, fundHouse, category },
+  ]);
+  return results[0] || null;
+}
+
+export async function lookupOfficialRiskometersWithGemini(funds = []) {
+  const normalizedFunds = (Array.isArray(funds) ? funds : [])
+    .map((fund, index) => ({
+      requestIndex: index,
+      schemeName: String(fund?.schemeName || "").trim(),
+      amfiCode: String(fund?.amfiCode || "").trim(),
+      fundHouse: String(fund?.fundHouse || "").trim(),
+      category: String(fund?.category || "").trim(),
+    }))
+    .filter((fund) => fund.schemeName);
+
+  if (!normalizedFunds.length) {
+    return [];
   }
 
-  const buildRiskometerPrompt = ({ thirdPartySource = null }) => `
-Find the latest Risk-o-meter for this Indian mutual fund scheme and return ONE JSON object only.
+  const resultMap = new Map(
+    normalizedFunds.map((fund) => [
+      fund.requestIndex,
+      {
+        schemeName: fund.schemeName,
+        amfiCode: fund.amfiCode,
+        riskLabel: "UNKNOWN",
+        sourceName: "",
+        sourceUrl: "",
+        asOfDateText: "",
+        verified: false,
+        lookupStatus: "NOT_FOUND",
+      },
+    ])
+  );
 
-Scheme name: ${cleanSchemeName}
-AMFI code: ${String(amfiCode || "").trim() || "unknown"}
-Fund house: ${String(fundHouse || "").trim() || "unknown"}
-Category: ${String(category || "").trim() || "unknown"}
+  const buildBatchRiskometerPrompt = ({ source, batchFunds }) => `
+Find the latest Risk-o-meter for each Indian mutual fund below and return ONE JSON ARRAY only.
 
-Allowed source: ${thirdPartySource?.label || "approved third-party source"} only.
-Allowed domain: ${(thirdPartySource?.domains || []).join(", ")}
-sourceType must be ${thirdPartySource?.key || "null"} or null.
-If this exact source is not found, return riskometer=null and verified=false.
+Allowed source: ${source?.label || "approved third-party source"} only.
+Allowed domain: ${(source?.domains || []).join(", ")}
+sourceType must be ${source?.key || "null"} or null.
+sourceUrl must be on ${(source?.domains || []).join(", ")} only.
+Do not use Value Research, ET Money, Paytm Money, Tickertape, Mint, or any other domain.
+If the exact ${source?.label || "source"} page is not found for a fund, return verified=false and riskometer=null for that fund.
+If the only available result is from another domain, return sourceUrl=null and verified=false for that fund.
 
 Allowed riskometer values: Low, Low to Moderate, Moderate, Moderately High, High, Very High.
-Do not return arrays, markdown, comments, or multiple sources.
+Do not omit any fund. Do not return markdown, prose, or comments.
 
-{
-  "schemeName": "string",
-  "amfiCode": "string",
-  "riskometer": "Low | Low to Moderate | Moderate | Moderately High | High | Very High | null",
-  "asOfDateOrMonth": "string | null",
-  "sourceUrl": "string | null",
-  "sourceType": "MONEYCONTROL | GROWW | null",
-  "verified": true
-}
+Funds:
+${stringifyJson(batchFunds.map((fund) => ({
+    requestIndex: fund.requestIndex,
+    schemeName: fund.schemeName,
+    amfiCode: fund.amfiCode || "unknown",
+    fundHouse: fund.fundHouse || "unknown",
+    category: fund.category || "unknown",
+  })))}
+
+Return exactly this JSON array shape:
+[
+  {
+    "requestIndex": 0,
+    "schemeName": "string",
+    "amfiCode": "string",
+    "riskometer": "Low | Low to Moderate | Moderate | Moderately High | High | Very High | null",
+    "asOfDateOrMonth": "string | null",
+    "sourceUrl": "string | null",
+    "sourceType": "${source?.key || "null"} | null",
+    "verified": true
+  }
+]
 `.trim();
 
-  const lookupTier = async (thirdPartySource = null) => {
-    const { parsed, groundingUrls } = await callGeminiJson({
-      prompt: buildRiskometerPrompt({ thirdPartySource }),
-      system: RISKOMETER_SYSTEM_PROMPT,
-      useSearch: true,
-      temperature: 0,
-      maxOutputTokens: 512,
-    });
-
-    const groundedToSource = Array.isArray(groundingUrls);
-    const candidates = normalizeParsedRiskometerCandidates(parsed);
-    const acceptedCandidate = candidates.find((candidate) => {
-      const candidateRiskLabel = normalizeRiskLabel(candidate?.riskometer);
-      const candidateSourceUrl = String(candidate?.sourceUrl || "").trim();
-      const sourceLooksThirdPartyFallback = thirdPartySource
-        ? isSpecificThirdPartySourceUrl(candidateSourceUrl, thirdPartySource)
-        : isThirdPartyFallbackSourceUrl(candidateSourceUrl);
-      return candidateRiskLabel !== "UNKNOWN" && sourceLooksThirdPartyFallback && groundedToSource;
-    }) || {};
-
-    const riskLabel = normalizeRiskLabel(acceptedCandidate?.riskometer);
-    const sourceUrl = String(acceptedCandidate?.sourceUrl || "").trim();
-    const sourceType = String(acceptedCandidate?.sourceType || "").trim().toUpperCase();
-    const sourceLooksThirdPartyFallback = isThirdPartyFallbackSourceUrl(sourceUrl);
-    const verified = riskLabel !== "UNKNOWN" && Boolean(sourceUrl);
-
-    return {
-      schemeName: String(acceptedCandidate?.schemeName || cleanSchemeName).trim(),
-      amfiCode: String(acceptedCandidate?.amfiCode || amfiCode || "").trim(),
-      riskLabel: verified ? riskLabel : "UNKNOWN",
-      sourceName: verified ? getThirdPartySourceName(sourceUrl) : "",
-      sourceUrl: verified ? sourceUrl : "",
-      asOfDateText: verified ? String(acceptedCandidate?.asOfDateOrMonth || "").trim() : "",
-      verified,
-    };
-  };
-
+  let hadSuccessfulLookup = false;
+  let pendingFunds = [...normalizedFunds];
   for (const source of THIRD_PARTY_RISKOMETER_SOURCES) {
+    if (!pendingFunds.length) break;
     try {
-      const thirdPartyResult = await lookupTier(source);
-      if (thirdPartyResult?.verified) return thirdPartyResult;
+      const { parsed, groundingUrls } = await callGeminiJson({
+        prompt: buildBatchRiskometerPrompt({ source, batchFunds: pendingFunds }),
+        system: RISKOMETER_SYSTEM_PROMPT,
+        useSearch: true,
+        temperature: 0,
+        maxOutputTokens: Math.max(getGeminiRiskometerMaxOutputTokens(), pendingFunds.length * 500),
+      });
+      hadSuccessfulLookup = true;
+
+      const candidates = normalizeParsedRiskometerCandidates(parsed);
+
+      for (const candidate of candidates) {
+        const requestIndex = Number(candidate?.requestIndex);
+        if (!Number.isInteger(requestIndex) || !resultMap.has(requestIndex)) continue;
+
+        const riskLabel = normalizeRiskLabel(candidate?.riskometer);
+        const candidateSourceType = String(candidate?.sourceType || "").trim().toUpperCase();
+        const sourceTypeMatches = candidateSourceType === String(source?.key || "").toUpperCase();
+        const trustedSourceUrl = sourceTypeMatches
+          ? String(candidate?.sourceUrl || "").trim()
+          : "";
+        const verified = riskLabel !== "UNKNOWN" && sourceTypeMatches;
+
+        if (!verified) continue;
+
+        resultMap.set(requestIndex, {
+          schemeName: String(candidate?.schemeName || resultMap.get(requestIndex)?.schemeName || "").trim(),
+          amfiCode: String(candidate?.amfiCode || resultMap.get(requestIndex)?.amfiCode || "").trim(),
+          riskLabel,
+          sourceName: candidateSourceType || String(source?.key || "").toUpperCase(),
+          sourceUrl: "",
+          asOfDateText: String(candidate?.asOfDateOrMonth || "").trim(),
+          verified: true,
+          lookupStatus: trustedSourceUrl ? "FOUND" : "FOUND_NO_URL",
+        });
+      }
+
+      pendingFunds = pendingFunds.filter((fund) => !resultMap.get(fund.requestIndex)?.verified);
     } catch {
-      // Try the next approved source.
+      // Try next approved source.
     }
   }
 
-  return {
-    schemeName: cleanSchemeName,
-    amfiCode: String(amfiCode || "").trim(),
-    riskLabel: "UNKNOWN",
-    sourceName: "",
-    sourceUrl: "",
-    asOfDateText: "",
-    verified: false,
-  };
+  return normalizedFunds
+    .sort((a, b) => a.requestIndex - b.requestIndex)
+    .map((fund) => {
+      const result = resultMap.get(fund.requestIndex);
+      if (!hadSuccessfulLookup && !result?.verified) {
+        return {
+          ...result,
+          lookupStatus: "LOOKUP_ERROR",
+        };
+      }
+      return result;
+    });
 }
 
 export function buildRiskProfileNarrative(aiEvaluation = {}) {
