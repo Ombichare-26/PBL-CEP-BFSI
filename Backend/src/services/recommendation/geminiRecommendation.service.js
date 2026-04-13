@@ -15,11 +15,11 @@ function getGeminiModel() {
 }
 
 function getGeminiTimeoutMs() {
-  return Number(process.env.GEMINI_TIMEOUT_MS) || 45000;
+  return Number(process.env.GEMINI_TIMEOUT_MS) || 25000;
 }
 
 function getGeminiRiskometerMaxOutputTokens() {
-  return Number(process.env.GEMINI_RISKOMETER_MAX_OUTPUT_TOKENS) || 3000;
+  return Number(process.env.GEMINI_RISKOMETER_MAX_OUTPUT_TOKENS) || 1600;
 }
 
 const VALID_RISK_LABELS = new Set([
@@ -522,18 +522,8 @@ const CHAT_SYSTEM_PROMPT =
 const RISKOMETER_SYSTEM_PROMPT =
   "You extract Indian mutual fund Risk-o-meter values from approved third-party sources. Use Google Search grounding and output JSON only.";
 
-const RECOMMENDATION_CACHE = new Map();
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
-
 export async function generateInitialRecommendationWithGemini({ analysisResult }) {
   const payload = buildInitialPrompt({ analysisResult });
-  const cacheKey = Buffer.from(payload).toString("base64").slice(0, 100);
-
-  const cached = RECOMMENDATION_CACHE.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    console.log("Returning cached Gemini recommendation.");
-    return cached.data;
-  }
 
   const { parsed } = await callGeminiJson({
     prompt: payload,
@@ -548,11 +538,6 @@ export async function generateInitialRecommendationWithGemini({ analysisResult }
     nextSteps: sanitizeList(parsed?.nextSteps),
     model: getGeminiModel(),
   };
-
-  RECOMMENDATION_CACHE.set(cacheKey, {
-    data: result,
-    timestamp: Date.now(),
-  });
 
   return result;
 }
@@ -682,7 +667,7 @@ Return exactly this JSON array shape:
         system: RISKOMETER_SYSTEM_PROMPT,
         useSearch: true,
         temperature: 0,
-        maxOutputTokens: Math.max(getGeminiRiskometerMaxOutputTokens(), pendingFunds.length * 500),
+        maxOutputTokens: Math.max(getGeminiRiskometerMaxOutputTokens(), pendingFunds.length * 220),
       });
       hadSuccessfulLookup = true;
 
@@ -707,7 +692,7 @@ Return exactly this JSON array shape:
           amfiCode: String(candidate?.amfiCode || resultMap.get(requestIndex)?.amfiCode || "").trim(),
           riskLabel,
           sourceName: candidateSourceType || String(source?.key || "").toUpperCase(),
-          sourceUrl: "",
+          sourceUrl: trustedSourceUrl,
           asOfDateText: String(candidate?.asOfDateOrMonth || "").trim(),
           verified: true,
           lookupStatus: trustedSourceUrl ? "FOUND" : "FOUND_NO_URL",
@@ -740,5 +725,5 @@ export function buildRiskProfileNarrative(aiEvaluation = {}) {
   const dominantRisk = String(aiEvaluation?.portfolioRiskView?.dominantRiskLevel || "UNKNOWN").replace(/_/g, " ");
   const coveragePct = Math.round(Number(aiEvaluation?.portfolioRiskView?.officialCoverageByValuePct) || 0);
 
-  return `The portfolio's current risk profile is explained on a 1-6 scale where ${buildRiskScaleLegend()}. Based on the verified holdings, the weighted average risk score is ${weightedScore || 0}, which maps to ${riskLevel}. The dominant disclosed risk bucket is ${dominantRisk}, and about ${coveragePct}% of current portfolio value is covered by official scheme-level risk data or the derived analytics model.`;
+  return `The portfolio's current risk profile is explained on a 1-6 scale where ${buildRiskScaleLegend()}. Based on the verified holdings, the weighted average risk score is ${weightedScore || 0}, which maps to ${riskLevel}. The dominant disclosed risk bucket is ${dominantRisk}, and about ${coveragePct}% of current portfolio value is covered by official scheme-level risk data.`;
 }

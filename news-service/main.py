@@ -69,6 +69,71 @@ def categorize(title: str, summary: str = "") -> str:
         
     return "Mutual Fund"
 
+def normalize_yf_news_item(item: dict, fallback_category: str) -> dict | None:
+    if not isinstance(item, dict):
+        return None
+
+    content = item.get("content") or {}
+    canonical = content.get("canonicalUrl") or {}
+    provider = content.get("provider") or {}
+    clickthrough = content.get("clickThroughUrl") or {}
+    finance = item.get("finance") or {}
+
+    title = (
+        item.get("title")
+        or content.get("title")
+        or ""
+    ).strip()
+
+    link = (
+        item.get("link")
+        or canonical.get("url")
+        or clickthrough.get("url")
+        or finance.get("canonicalUrl", {}).get("url")
+        or ""
+    ).strip()
+
+    summary = (
+        item.get("summary")
+        or content.get("summary")
+        or content.get("description")
+        or ""
+    ).strip()
+
+    publisher = (
+        item.get("publisher")
+        or provider.get("displayName")
+        or content.get("publisher")
+        or "Yahoo Finance"
+    )
+
+    published_ts = (
+        item.get("providerPublishTime")
+        or content.get("pubDate")
+        or item.get("pubDate")
+    )
+
+    published = None
+    if isinstance(published_ts, (int, float)):
+        published = datetime.fromtimestamp(published_ts).strftime("%Y-%m-%d")
+    elif isinstance(published_ts, str) and published_ts:
+        try:
+            published = datetime.fromisoformat(published_ts.replace("Z", "+00:00")).strftime("%Y-%m-%d")
+        except ValueError:
+            published = published_ts[:10]
+
+    if not title or not link:
+        return None
+
+    return {
+        "title": title,
+        "source": publisher,
+        "link": link,
+        "published": published,
+        "category": categorize(title, summary) or fallback_category,
+        "sentiment": get_sentiment(f"{title} {summary}".strip()),
+    }
+
 # -------------------------
 # Core Logic
 # -------------------------
@@ -86,22 +151,15 @@ def fetch_news():
                 if not yf_news: continue
                 
                 for item in yf_news:
-                    link = item.get("link")
-                    title = item.get("title", "")
-                    if not link or not title or link in seen_urls: continue
-                    
-                    published_ts = item.get("providerPublishTime")
-                    published = datetime.fromtimestamp(published_ts).strftime("%Y-%m-%d") if published_ts else None
+                    normalized = normalize_yf_news_item(item, cat_name)
+                    if not normalized or normalized["link"] in seen_urls:
+                        continue
 
-                    articles.append({
-                        "title": title,
-                        "source": item.get("publisher", "Financial News"),
-                        "link": link,
-                        "published": published,
-                        "category": cat_name,
-                        "sentiment": get_sentiment(title)
-                    })
-                    seen_urls.add(link)
+                    if normalized["category"] == "Mutual Fund":
+                        normalized["category"] = cat_name
+
+                    articles.append(normalized)
+                    seen_urls.add(normalized["link"])
             except Exception as e:
                 print(f"Error for {symbol}: {e}")
 
