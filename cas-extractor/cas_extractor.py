@@ -645,26 +645,39 @@ def fetch_amfi_data():
     if _AMFI_DATA_CACHE is not None:
         return _AMFI_DATA_CACHE
 
-    res = requests.get(AMFI_URL, headers=HEADERS, timeout=20)
-    res.raise_for_status()
+    try:
+        res = requests.get(AMFI_URL, headers=HEADERS, timeout=20)
+        res.raise_for_status()
+    except Exception as e:
+        print(f"❌ Error fetching AMFI data: {e}")
+        return []
 
     schemes = []
-    for line in res.text.splitlines():
-        if not line or line.startswith("Scheme Code"):
+    lines = res.text.splitlines()
+    for line in lines:
+        if not line or line.startswith("Scheme Code") or ";" not in line:
             continue
 
         parts = line.split(";")
         if len(parts) < 5:
             continue
 
-        schemes.append({
-            "amfi_code": parts[0].strip(),
-            "amfi_name": parts[3].strip(),
-            "nav": float(parts[4]) if parts[4] else 0.0,
-            "norm": normalize(parts[3]),
-            "tokens": tokenize(parts[3]),
-            "core": strip_plan_words(parts[3])
-        })
+        try:
+            name = parts[3].strip()
+            nav_str = parts[4].strip()
+            nav = float(nav_str) if nav_str and nav_str.lower() != "n.a." else 0.0
+
+            schemes.append({
+                "amfi_code": parts[0].strip(),
+                "amfi_name": name,
+                "nav": nav,
+                "norm": normalize(name),
+                "tokens": tokenize(name),
+                "core": strip_plan_words(name)
+            })
+        except (ValueError, IndexError):
+            continue
+
     _AMFI_DATA_CACHE = schemes
     return schemes
 
@@ -672,46 +685,72 @@ def fetch_amfi_data():
 # AMFI MATCHING ENGINE (ROBUST)
 # =========================================================
 
-def get_amfi_details(user_scheme, amfi_data, threshold=0.50):
+def get_amfi_details(user_scheme, amfi_data, threshold=0.45):
     user_norm = normalize(user_scheme)
     user_tokens = tokenize(user_scheme)
+    if not user_tokens:
+        return None
+        
     user_plan = extract_plan(user_tokens)
 
-    candidates = []
-
+    # Phase 1: Fast Filtering using Token Overlap (Jaccard-ish)
+    scored_candidates = []
     for s in amfi_data:
-        overlap = len(user_tokens & s["tokens"]) / max(1, len(user_tokens | s["tokens"]))
-        sim = similarity(user_norm, s["norm"])
-        score = (0.65 * overlap) + (0.35 * sim)
+        intersection = len(user_tokens & s["tokens"])
+        if intersection == 0:
+            continue
+            
+        union = len(user_tokens | s["tokens"])
+        overlap = intersection / union
+        
+        # Initial filter: must have at least one significant token in common
+        if overlap > 0.05:
+            scored_candidates.append({**s, "overlap": overlap})
+
+    if not scored_candidates:
+        return None
+
+    # Sort by overlap and take top N for expensive fuzzy matching
+    scored_candidates.sort(key=lambda x: x["overlap"], reverse=True)
+    top_candidates = scored_candidates[:50] # Only take top 50 for SequenceMatcher
+
+    # Phase 2: Detailed Fuzzy Matching
+    final_candidates = []
+    for c in top_candidates:
+        sim = similarity(user_norm, c["norm"])
+        score = (0.60 * c["overlap"]) + (0.40 * sim)
 
         if score >= threshold:
-            candidates.append({**s, "score": score})
+            final_candidates.append({**c, "score": score})
 
-    if not candidates:
+    if not final_candidates:
         return None
 
     grouped = defaultdict(list)
-    for c in candidates:
+    for c in final_candidates:
         grouped[c["core"]].append(c)
 
     best = None
     best_score = 0
 
     for group in grouped.values():
-
-        # Respect Direct/Regular if explicitly mentioned
         if user_plan:
-            group = [
+            filtered_group = [
                 g for g in group
                 if user_plan in normalize(g["amfi_name"])
-            ] or group
+            ]
+            if filtered_group:
+                group = filtered_group
 
-        # Choose highest NAV (Direct wins naturally)
+        # Choose highest NAV within the best name group
         chosen = max(group, key=lambda x: (x["nav"], x["score"]))
 
         if chosen["score"] > best_score:
             best_score = chosen["score"]
             best = chosen
+
+    if not best:
+        return None
 
     return {
         "amfi_code": best["amfi_code"],

@@ -1,0 +1,17 @@
+/Users/ombichare/Desktop/Chai_Backend/news-service/venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+--- Checking Freefincal ---
+Status: 200
+Entries found: 20
+  1. Does factor investing outperformance fail for high-turnover stocks?
+  2. From Defined Benefit to Defined Risk: Taking Control of Your NPS Journey
+  3. Have faith in equity and continue investing in bear markets
+--- Checking BasuNivesh ---
+Status: 200
+Entries found: 0
+--- Checking Livemint ---
+Status: 200
+Entries found: 35
+  1. 8th Central Pay Commission meetings in Delhi &amp; Maharashtra: Full schedule, key dates &amp; participation process revealed
+  2. SBI WhatsApp Banking: How to register yourself, check balance, get mini statement and more
+  3. ESG data is reshaping India’s credit decisions: What borrowers must know

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 import tempfile
 import os
@@ -30,19 +31,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+import time
+
 @app.post("/extract-cas")
 async def extract_cas(file: UploadFile = File(...)):
+    start_time = time.time()
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files allowed")
 
     tmp_path = None
     try:
+        print(f"🚀 Starting extraction for {file.filename}...")
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             tmp.write(await file.read())
             tmp_path = tmp.name
 
-        return extract_portfolio(tmp_path, include_risk_lookup=False)
+        results = extract_portfolio(tmp_path, include_risk_lookup=False)
+        end_time = time.time()
+        print(f"✅ Extraction complete in {end_time - start_time:.2f}s. Found {len(results)} schemes.")
+        return results
     except Exception as e:
+        print(f"❌ Extraction failed: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Unexpected error: {str(e)}"
@@ -137,7 +146,7 @@ def calculate_max_drawdown(nav_points: list[float]):
             max_drawdown = max(max_drawdown, ((peak - nav) / peak) * 100)
     return round(max_drawdown, 2)
 
-def derive_risk_metrics(category: str, nav_points: list[float], source_url: str = "", as_of_date: str | None = None):
+def derive_risk_metrics(category: str, nav_points: list[float], source_url: str = "", as_of_date: Optional[str] = None):
     volatility_pct = calculate_annualized_volatility(nav_points)
     max_drawdown_pct = calculate_max_drawdown(nav_points)
     category_score = normalize_category_risk_score(category)
@@ -179,7 +188,13 @@ async def get_fund_history(amfi_code: str, period: str = "1m"):
         res = requests.get(url, timeout=10)
 
         if res.status_code != 200:
-            raise HTTPException(status_code=404, detail="Fund not found")
+            if res.status_code == 404:
+                raise HTTPException(status_code=404, detail="Fund not found")
+            else:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Upstream Mutual Fund API returned error {res.status_code}. It might be temporarily down."
+                )
 
         data = res.json()
         historical = data.get("data", [])
@@ -269,5 +284,14 @@ async def get_fund_history(amfi_code: str, period: str = "1m"):
             }
         return payload
 
+    except HTTPException:
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Upstream MF API error for {amfi_code}: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail="Upstream Mutual Fund API is currently unavailable or timed out. Please try again later."
+        )
     except Exception as e:
+        print(f"❌ Internal server error in fund-history for {amfi_code}: {e}")
         raise HTTPException(status_code=500, detail=str(e))

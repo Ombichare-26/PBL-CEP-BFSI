@@ -6,6 +6,7 @@ import Home from "./pages/Home"
 import Input from "./pages/InputPage.jsx"
 import PortfolioPage from "./pages/PortfolioPage.jsx"
 import AiChatPage from "./pages/AiChatPage.jsx"
+import NewsPage from "./pages/NewsPage.jsx"
 // import UploadPortfolio from "./pages/UploadPortfolio.jsx"
 // import PortfolioView from "./pages/PortfolioView.jsx"
 // import Allocation from "./pages/Allocation.jsx"
@@ -22,6 +23,7 @@ function App()
       <Route path="/input" element={<Input/>}/>
       <Route path="/portfolio" element={<PortfolioPage/>}/>
       <Route path="/ai-chat" element={<AiChatPage/>}/>
+      <Route path="/news" element={<NewsPage/>}/>
       {/* <Route path="/upload" element={<UploadPortfolio/>}/>
       <Route path="/portfolio" element={<PortfolioView/>}/>
       <Route path="/allocate" element={<Allocation/>}/>

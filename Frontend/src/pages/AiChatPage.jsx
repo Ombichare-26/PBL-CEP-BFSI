@@ -418,17 +418,18 @@ function AiChatPage() {
 
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <button
-          onClick={() => navigate(sessionId ? `/portfolio?session_id=${sessionId}` : "/portfolio")}
+          onClick={() => navigate("/news")}
           style={{
             padding: "10px 16px",
             borderRadius: 8,
-            border: "1px solid #16a34a",
-            background: "#16a34a",
+            border: "1px solid #3b82f6",
+            background: "#3b82f6",
             color: "white",
             cursor: "pointer",
+            fontWeight: "600"
           }}
         >
-          Show Me Funds
+          Get Updates
         </button>
       </div>
     </div>
