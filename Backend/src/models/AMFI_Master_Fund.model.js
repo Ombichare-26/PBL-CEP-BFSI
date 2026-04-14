@@ -8,7 +8,7 @@ const AMFIMasterSchema = new mongoose.Schema({
     index: true,
     trim: true,
   },
-  schema_name: {
+  scheme_name: {
     type: String,
     required: true,
     trim: true,

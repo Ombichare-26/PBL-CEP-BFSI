@@ -37,6 +37,11 @@ const UserPortfolioSchema = new mongoose.Schema(
       default: ""
     },
 
+    risk_last_verified_at: {
+      type: Date,
+      default: null
+    },
+
     risk_match_confidence: {
       type: Number,
       default: 0

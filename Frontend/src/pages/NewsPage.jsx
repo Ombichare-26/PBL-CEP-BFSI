@@ -25,27 +25,27 @@ const NewsPage = () => {
     }
   };
 
-  const categories = ["ALL", "ETF", "Small Cap", "Flexi Cap", "Mutual Fund"];
+  const tabs = ["ALL", "Positive", "Negative", "Neutral"];
 
   const filteredNews = filter === "ALL" 
     ? news 
-    : news.filter(item => item.category === filter);
+    : news.filter(item => item.sentiment === filter.toLowerCase());
 
   return (
     <div className="news-container">
       <header className="news-header">
         <h1>Market Intelligence</h1>
-        <p>Latest insights on ETFs, Small Cap and Flexi Cap funds</p>
+        <p>Latest sentiment analysis on Indian Mutual Funds and markets</p>
       </header>
 
       <div className="filter-bar">
-        {categories.map(cat => (
+        {tabs.map(tab => (
           <button 
-            key={cat}
-            className={`filter-btn ${filter === cat ? "active" : ""}`}
-            onClick={() => setFilter(cat)}
+            key={tab}
+            className={`filter-btn ${filter === tab ? "active" : ""}`}
+            onClick={() => setFilter(tab)}
           >
-            {cat}
+            {tab}
           </button>
         ))}
       </div>

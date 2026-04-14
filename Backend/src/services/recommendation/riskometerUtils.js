@@ -497,12 +497,15 @@ export async function fetchOfficialRiskometersWithGeminiBatch(funds = []) {
   }
 
   for (const batch of chunkArray(uncachedFunds, GEMINI_RISK_BATCH_SIZE)) {
+    console.log(`Gemini Batch: ${batch.map((f) => f.schemeName).join(", ")}`);
     const batchPromise = enqueueGeminiRiskLookup(async () => lookupOfficialRiskometersWithGemini(batch));
 
     for (const fund of batch) {
       geminiRiskInFlight.set(fund.cacheKey, batchPromise.then((lookups) => {
         const lookup = lookups[batch.findIndex((entry) => entry.cacheKey === fund.cacheKey)];
-        return normalizeGeminiLookupResult(lookup);
+        const normalized = normalizeGeminiLookupResult(lookup);
+        console.log(`Gemini Result: ${fund.schemeName} -> ${normalized.riskLabel}`);
+        return normalized;
       }));
     }
 
@@ -608,17 +611,18 @@ async function cacheGeminiRiskometerResult({
   if (risk.riskAsOfDateText) {
     setPayload.risk_notes = `${risk.riskVerificationStatus || ""} as of ${risk.riskAsOfDateText}`.trim();
   }
-  if (schemeName) setPayload.schema_name = schemeName;
+  if (schemeName) setPayload.scheme_name = schemeName;
   if (category) setPayload.category = category;
   if (fundHouse) setPayload.fund_house = fundHouse;
 
   try {
+    console.log(`Cached: ${schemeName || code} ${normalizeRiskLabel(risk.riskLabel)}`);
     await AMFIMaster.updateOne(
       { amfi_code: code },
       {
         $set: setPayload,
         $setOnInsert: {
-          amfi_code: code,
+           amfi_code: code,
         },
       },
       { upsert: true }
@@ -649,13 +653,13 @@ async function cacheGeminiRiskometerFailure({
           risk_source_type: "GEMINI_LOOKUP_FAILED",
           risk_last_verified_at: new Date(),
           risk_notes: "UNVERIFIED_NOT_FOUND",
-          ...(schemeName ? { schema_name: schemeName } : {}),
+          ...(schemeName ? { scheme_name: schemeName } : {}),
           ...(category ? { category } : {}),
           ...(fundHouse ? { fund_house: fundHouse } : {}),
         },
         $setOnInsert: {
           amfi_code: code,
-          ...(schemeName ? { schema_name: schemeName } : {}),
+          ...(schemeName ? { scheme_name: schemeName } : {}),
         },
       },
       { upsert: true }
@@ -680,7 +684,7 @@ export async function fetchSchemeRiskMap(amfiCodes = [], holdings = [], options 
     { amfi_code: { $in: uniqueCodes } },
     {
       amfi_code: 1,
-      schema_name: 1,
+      scheme_name: 1,
       category: 1,
       risk_level: 1,
       fund_house: 1,
@@ -700,7 +704,7 @@ export async function fetchSchemeRiskMap(amfiCodes = [], holdings = [], options 
     if (officialRiskLabel !== "UNKNOWN") {
       resolvedDocs.push({
         amfiCode: String(doc.amfi_code),
-        schemeName: doc.schema_name || "",
+        schemeName: doc.scheme_name || "",
         category: doc.category || "",
         fundHouse: doc.fund_house || "",
         riskLabel: officialRiskLabel,
@@ -716,11 +720,11 @@ export async function fetchSchemeRiskMap(amfiCodes = [], holdings = [], options 
     if (isRecentFailedGeminiLookup(doc)) {
       resolvedDocs.push({
         amfiCode: String(doc.amfi_code),
-        schemeName: doc.schema_name || "",
+        schemeName: doc.scheme_name || "",
         category: doc.category || "",
         fundHouse: doc.fund_house || "",
         ...buildUnknownRiskEntry({
-          schemeName: doc.schema_name || "",
+          schemeName: doc.scheme_name || "",
           category: doc.category || "",
           fundHouse: doc.fund_house || "",
           lookupStatus: "NOT_FOUND",
@@ -739,11 +743,11 @@ export async function fetchSchemeRiskMap(amfiCodes = [], holdings = [], options 
 
     resolvedDocs.push({
       amfiCode: String(doc.amfi_code),
-      schemeName: doc.schema_name || "",
+      schemeName: doc.scheme_name || "",
       category: doc.category || "",
       fundHouse: doc.fund_house || "",
       ...buildUnknownRiskEntry({
-        schemeName: doc.schema_name || "",
+        schemeName: doc.scheme_name || "",
         category: doc.category || "",
         fundHouse: doc.fund_house || "",
         lookupStatus: "GEMINI_SKIPPED",
@@ -757,7 +761,7 @@ export async function fetchSchemeRiskMap(amfiCodes = [], holdings = [], options 
   if (allowGemini && docsNeedingGemini.length) {
     const geminiResultsByCode = await resolveFundsWithGeminiBatch(
       docsNeedingGemini.map((doc) => ({
-        schemeName: doc.schema_name,
+        schemeName: doc.scheme_name,
         amfiCode: doc.amfi_code,
         fundHouse: doc.fund_house,
         category: doc.category,
@@ -766,7 +770,7 @@ export async function fetchSchemeRiskMap(amfiCodes = [], holdings = [], options 
 
     for (const doc of docsNeedingGemini) {
       const resolved = geminiResultsByCode.get(String(doc.amfi_code)) || buildUnknownRiskEntry({
-        schemeName: doc.schema_name || "",
+        schemeName: doc.scheme_name || "",
         category: doc.category || "",
         fundHouse: doc.fund_house || "",
         lookupStatus: "NOT_FOUND",
@@ -774,7 +778,7 @@ export async function fetchSchemeRiskMap(amfiCodes = [], holdings = [], options 
 
       resolvedDocs.push({
         amfiCode: String(doc.amfi_code),
-        schemeName: doc.schema_name || resolved.schemeName || "",
+        schemeName: doc.scheme_name || resolved.schemeName || "",
         category: doc.category || resolved.category || "",
         fundHouse: doc.fund_house || resolved.fundHouse || "",
         ...resolved,

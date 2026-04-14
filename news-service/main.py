@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import yfinance as yf
+
 import feedparser
+import requests
 from textblob import TextBlob
 from datetime import datetime, timedelta
 import time
@@ -21,18 +22,16 @@ app.add_middleware(
 # -------------------------
 # Configuration
 # -------------------------
-# Tickers specifically for news proxies
-TICKER_DATA = {
-    "ETF": ["NIFTYBEES.NS", "SPY", "VTI", "IVV"],
-    "Small Cap": ["IWM", "VB", "IJR", "SML.L"], 
-    "Flexi Cap": ["VTI"] # Flexi-cap is very specific to India, using broad market as the closest news proxy
-}
+HEADERS = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
 
-# Simplified queries to ensure data availability on Yahoo Finance
+# Reliable Indian Mutual Fund RSS Feeds
 RSS_FEEDS = {
-    "ETF": "https://finance.yahoo.com/rss/search?q=Exchanged+Traded+Fund",
-    "Small Cap": "https://finance.yahoo.com/rss/search?q=Small+Cap+Fund",
-    "Flexi Cap": "https://finance.yahoo.com/rss/search?q=Mutual+Fund+Market"
+    "MoneyControl": "https://www.moneycontrol.com/rss/mfnews.xml",
+    "Economic Times": "https://economictimes.indiatimes.com/mf/rssfeedsdefault.cms",
+    "LiveMint": "https://www.livemint.com/rss/mutual-funds",
+    "Google News ETFs India": "https://news.google.com/rss/search?q=ETF+Exchange+Traded+Fund+India+Mutual+Funds&hl=en-IN&gl=IN&ceid=IN:en",
+    "Google News Small Cap India": "https://news.google.com/rss/search?q=Small+Cap+Mutual+Fund+India&hl=en-IN&gl=IN&ceid=IN:en",
+    "Google News Flexi Cap India": "https://news.google.com/rss/search?q=Flexi+Cap+Fund+India&hl=en-IN&gl=IN&ceid=IN:en"
 }
 
 CACHE_TTL = 3600 * 6 
@@ -69,70 +68,7 @@ def categorize(title: str, summary: str = "") -> str:
         
     return "Mutual Fund"
 
-def normalize_yf_news_item(item: dict, fallback_category: str) -> dict | None:
-    if not isinstance(item, dict):
-        return None
 
-    content = item.get("content") or {}
-    canonical = content.get("canonicalUrl") or {}
-    provider = content.get("provider") or {}
-    clickthrough = content.get("clickThroughUrl") or {}
-    finance = item.get("finance") or {}
-
-    title = (
-        item.get("title")
-        or content.get("title")
-        or ""
-    ).strip()
-
-    link = (
-        item.get("link")
-        or canonical.get("url")
-        or clickthrough.get("url")
-        or finance.get("canonicalUrl", {}).get("url")
-        or ""
-    ).strip()
-
-    summary = (
-        item.get("summary")
-        or content.get("summary")
-        or content.get("description")
-        or ""
-    ).strip()
-
-    publisher = (
-        item.get("publisher")
-        or provider.get("displayName")
-        or content.get("publisher")
-        or "Yahoo Finance"
-    )
-
-    published_ts = (
-        item.get("providerPublishTime")
-        or content.get("pubDate")
-        or item.get("pubDate")
-    )
-
-    published = None
-    if isinstance(published_ts, (int, float)):
-        published = datetime.fromtimestamp(published_ts).strftime("%Y-%m-%d")
-    elif isinstance(published_ts, str) and published_ts:
-        try:
-            published = datetime.fromisoformat(published_ts.replace("Z", "+00:00")).strftime("%Y-%m-%d")
-        except ValueError:
-            published = published_ts[:10]
-
-    if not title or not link:
-        return None
-
-    return {
-        "title": title,
-        "source": publisher,
-        "link": link,
-        "published": published,
-        "category": categorize(title, summary) or fallback_category,
-        "sentiment": get_sentiment(f"{title} {summary}".strip()),
-    }
 
 # -------------------------
 # Core Logic
@@ -142,59 +78,54 @@ def fetch_news():
     articles = []
     seen_urls = set()
 
-    # 1. Fetch from Tickers
-    for cat_name, tickers in TICKER_DATA.items():
-        for symbol in tickers:
-            try:
-                tick = yf.Ticker(symbol)
-                yf_news = tick.news
-                if not yf_news: continue
-                
-                for item in yf_news:
-                    normalized = normalize_yf_news_item(item, cat_name)
-                    if not normalized or normalized["link"] in seen_urls:
-                        continue
 
-                    if normalized["category"] == "Mutual Fund":
-                        normalized["category"] = cat_name
-
-                    articles.append(normalized)
-                    seen_urls.add(normalized["link"])
-            except Exception as e:
-                print(f"Error for {symbol}: {e}")
 
     # 2. Fetch from RSS Feeds
-    for feed_cat, feed_url in RSS_FEEDS.items():
+    for source_name, feed_url in RSS_FEEDS.items():
         try:
-            feed = feedparser.parse(feed_url)
-            for entry in feed.entries:
+            # Use requests with a valid User-Agent because Google News blocks Python's default urllib agent!
+            response = requests.get(feed_url, headers=HEADERS, timeout=10)
+            if response.status_code != 200:
+                print(f"Skipping {source_name}, returned status {response.status_code}")
+                continue
+
+            feed = feedparser.parse(response.content)
+            # Limit strictly to 15 articles per source so one feed doesn't consume the top 60 limit!
+            for entry in feed.entries[:15]:
                 link = getattr(entry, "link", None)
                 title = getattr(entry, "title", "")
                 summary = getattr(entry, "summary", "")
                 if not link or not title or link in seen_urls: continue
                 
-                # Manual matching
-                matched_cat = categorize(title, summary)
-                # If manual matching is "Market", but it came from a themed feed, trust the theme
-                # unless it's the generic Flexi Cap feed which often returns broad news
-                final_cat = matched_cat
-                if final_cat == "Mutual Fund":
-                    if feed_cat != "Flexi Cap": # Only trust specific themed feeds for ETF/Small Cap
-                         final_cat = feed_cat
-                    else:
-                         final_cat = "Mutual Fund"
+                final_cat = categorize(title, summary)
                 
+                # If the categorization fell back to generic "Mutual Fund" but the FEED specifically 
+                # queried for Flexi Cap, Small Cap, or ETF, trust the feed source!
+                if final_cat == "Mutual Fund":
+                    if "Flexi" in source_name:
+                        final_cat = "Flexi Cap"
+                    elif "Small" in source_name:
+                        final_cat = "Small Cap"
+                    elif "ETF" in source_name:
+                        final_cat = "ETF"
+                
+                published_raw = getattr(entry, "published", None) or getattr(entry, "pubDate", None)
+                if not published_raw:
+                    published_date = datetime.now().strftime("%Y-%m-%d")
+                else:
+                    published_date = published_raw[:16]
+
                 articles.append({
                     "title": title,
-                    "source": "Yahoo Finance",
+                    "source": source_name,
                     "link": link,
-                    "published": getattr(entry, "published", datetime.now().strftime("%d %b %Y")),
+                    "published": published_date,
                     "category": final_cat,
                     "sentiment": get_sentiment(title + " " + summary)
                 })
                 seen_urls.add(link)
         except Exception as e:
-            print(f"Error for RSS {feed_cat}: {e}")
+            print(f"Error for RSS {source_name}: {e}")
 
     # Limit total news
     return articles[:60]
