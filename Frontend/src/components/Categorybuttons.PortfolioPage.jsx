@@ -11,6 +11,7 @@ function CategoryButtons({ selected, onSelect }) {
     <div className="category-buttons">
       {CATEGORIES.map(({ code, label }) => (
         <button
+          type="button"
           key={code}
           className={selected === code ? "active" : ""}
           onClick={() => onSelect(code)}
