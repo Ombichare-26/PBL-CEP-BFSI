@@ -6,7 +6,7 @@ const NEWS_API_URL = "http://localhost:9001/news";
 const NewsPage = () => {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("ALL");
+  const [filter, setFilter] = useState("Moneycontrol");
 
   useEffect(() => {
     fetchNews();
@@ -25,11 +25,13 @@ const NewsPage = () => {
     }
   };
 
-  const tabs = ["ALL", "Positive", "Negative", "Neutral"];
+  const tabs = ["Moneycontrol", "The Economic Times", "Business Standard", "Livemint"];
 
-  const filteredNews = filter === "ALL" 
-    ? news 
-    : news.filter(item => item.sentiment === filter.toLowerCase());
+  const filteredNews = news.filter(item => {
+    if (!item.source) return false;
+    const normalize = str => str.toLowerCase().replace(/^the\s+/, "").replace(/\s+/g, "");
+    return normalize(item.source) === normalize(filter);
+  });
 
   return (
     <div className="news-container">

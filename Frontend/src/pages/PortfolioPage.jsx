@@ -537,8 +537,17 @@ function formatEnum(value) {
   return String(value).replace(/_/g, " ");
 }
 
+const CATEGORY_MAP = {
+  ALL: "All",
+  SMALL: "Small Cap",
+  FLEXI: "Flexi Cap",
+  ETF: "ETF",
+  OTHER: "Other"
+};
+
 function formatCategory(value) {
-  return formatEnum(value) || "—";
+  if (!value) return "—";
+  return CATEGORY_MAP[value] || formatEnum(value);
 }
 
 export default PortfolioPage;

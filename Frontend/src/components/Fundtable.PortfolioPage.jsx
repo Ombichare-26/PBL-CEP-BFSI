@@ -9,6 +9,24 @@ function formatCurrency(num) {
   );
 }
 
+const CATEGORY_MAP = {
+  ALL: "All",
+  SMALL: "Small Cap",
+  FLEXI: "Flexi Cap",
+  ETF: "ETF",
+  OTHER: "Other"
+};
+
+function formatCategory(value) {
+  if (!value) return "—";
+  return CATEGORY_MAP[value] || value;
+}
+
+function formatRiskometer(value) {
+  if (!value) return "Unverified";
+  return String(value).replace(/_/g, " ");
+}
+
 function FundTable({ funds, onFundClick }) {
   if (!funds.length) {
     return (
@@ -35,6 +53,8 @@ function FundTable({ funds, onFundClick }) {
             <tr>
               <th>AMFI Code</th>
               <th>Name</th>
+              <th>Category</th>
+              <th>Risk</th>
               <th>NAV</th>
               <th>Units</th>
               <th>Current Value</th>
@@ -56,6 +76,12 @@ function FundTable({ funds, onFundClick }) {
                   </td>
                   <td className="fund-table__name">
                     <span>{fund.scheme_name}</span>
+                  </td>
+                  <td>{formatCategory(fund.category)}</td>
+                  <td>
+                    <span className={`riskometer-chip ${fund.risk_level ? "riskometer-chip--verified" : "riskometer-chip--unverified"}`}>
+                      {formatRiskometer(fund.risk_level)}
+                    </span>
                   </td>
                   <td>{nav != null && !Number.isNaN(nav) ? formatCurrency(nav) : "—"}</td>
                   <td>{units.toLocaleString("en-IN", { maximumFractionDigits: 4 })}</td>

@@ -26,12 +26,10 @@ HEADERS = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleW
 
 # Reliable Indian Mutual Fund RSS Feeds
 RSS_FEEDS = {
-    "MoneyControl": "https://www.moneycontrol.com/rss/mfnews.xml",
-    "Economic Times": "https://economictimes.indiatimes.com/mf/rssfeedsdefault.cms",
-    "LiveMint": "https://www.livemint.com/rss/mutual-funds",
-    "Google News ETFs India": "https://news.google.com/rss/search?q=ETF+Exchange+Traded+Fund+India+Mutual+Funds&hl=en-IN&gl=IN&ceid=IN:en",
-    "Google News Small Cap India": "https://news.google.com/rss/search?q=Small+Cap+Mutual+Fund+India&hl=en-IN&gl=IN&ceid=IN:en",
-    "Google News Flexi Cap India": "https://news.google.com/rss/search?q=Flexi+Cap+Fund+India&hl=en-IN&gl=IN&ceid=IN:en"
+    "Moneycontrol": "https://www.moneycontrol.com/rss/mfnews.xml",
+    "The Economic Times": "https://economictimes.indiatimes.com/mf/rssfeedsdefault.cms",
+    "Livemint": "https://www.livemint.com/rss/mutual-funds",
+    "Business Standard": "https://news.google.com/rss/search?q=mutual+funds+site:business-standard.com&hl=en-IN&gl=IN&ceid=IN:en"
 }
 
 CACHE_TTL = 3600 * 6 
@@ -97,10 +95,16 @@ def fetch_news():
                 summary = getattr(entry, "summary", "")
                 if not link or not title or link in seen_urls: continue
                 
+                # Check timeframe (last 7 days)
+                published_parsed = getattr(entry, "published_parsed", None)
+                if published_parsed:
+                    pub_dt = datetime.fromtimestamp(time.mktime(published_parsed))
+                    if datetime.now() - pub_dt > timedelta(days=7):
+                        continue
+                
                 final_cat = categorize(title, summary)
                 
-                # If the categorization fell back to generic "Mutual Fund" but the FEED specifically 
-                # queried for Flexi Cap, Small Cap, or ETF, trust the feed source!
+                # Trust the source query if category is ambiguous
                 if final_cat == "Mutual Fund":
                     if "Flexi" in source_name:
                         final_cat = "Flexi Cap"

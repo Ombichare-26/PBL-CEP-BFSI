@@ -3,6 +3,7 @@ import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
 import { chatRecommendation } from "../services/aiService";
 import "../components/PortfolioPage.css";
+import "./AiChatPage.css";
 
 const CHAT_CONTEXT_KEY = "chai_ai_chat_context";
 
@@ -141,34 +142,38 @@ function AiChatPage() {
 
   if (!initialContext?.recommendation) {
     return (
-      <div className="fund-details-modal" style={{ maxWidth: 900, margin: "32px auto" }}>
-        <h2>AI Chatbot</h2>
-        <p>Recommendation context not found. Please generate recommendation first from the portfolio page.</p>
-        <button
-          onClick={() => navigate(sessionId ? `/portfolio?session_id=${sessionId}` : "/portfolio")}
-          style={{ padding: "10px 14px", borderRadius: 8, border: "1px solid #2563eb", background: "#2563eb", color: "#fff" }}
-        >
-          Back to Portfolio
-        </button>
+      <div className="ai-chat-page-wrapper">
+        <div className="ai-chat-page-container" style={{ padding: 40, textAlign: "center" }}>
+          <h2 className="ai-chat-header__title" style={{ marginBottom: 16 }}>AI Chatbot</h2>
+          <p style={{ color: "#64748b", marginBottom: 24 }}>Recommendation context not found. Please generate recommendation first from the portfolio page.</p>
+          <button
+            onClick={() => navigate(sessionId ? `/portfolio?session_id=${sessionId}` : "/portfolio")}
+            className="ai-btn ai-btn--primary"
+          >
+            Back to Portfolio
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="fund-details-modal ai-chat-page" style={{ maxWidth: 900, margin: "32px auto" }}>
-      <div className="fund-details-header">
-        <h2 className="ai-chat-page__title">AI Chatbot (Recommendation Follow-up)</h2>
-        <button
-          className="close-btn"
-          onClick={() => navigate(sessionId ? `/portfolio?session_id=${sessionId}` : "/portfolio")}
-        >
-          ×
-        </button>
-      </div>
+    <div className="ai-chat-page-wrapper">
+      <div className="ai-chat-page-container">
+        <div className="ai-chat-header">
+          <h2 className="ai-chat-header__title">AI Chatbot (Recommendation Follow-up)</h2>
+          <button
+            className="ai-chat-close-btn"
+            onClick={() => navigate(sessionId ? `/portfolio?session_id=${sessionId}` : "/portfolio")}
+          >
+            ×
+          </button>
+        </div>
 
-      <div className="ai-card ai-chat-page__panel" style={{ marginBottom: 16 }}>
-        <div className="ai-card-title ai-chat-page__section-title">Current Final Recommendation</div>
-        <div className="ai-card-text ai-chat-page__meta" style={{ marginBottom: 8 }}>
+        <div className="ai-chat-content">
+          <div className="ai-card ai-chat-page__panel" style={{ marginBottom: 16 }}>
+            <div className="ai-card-title ai-chat-page__section-title">Current Final Recommendation</div>
+            <div className="ai-card-text ai-chat-page__meta" style={{ marginBottom: 8, color: "#6b7280" }}>
           Context: Duration {planningContext?.durationMonths ?? "-"} months, Expected ROI {planningContext?.expectedRoi ?? "-"}%, Investment Amount ₹{Number(planningContext?.investmentAmount || 0).toLocaleString("en-IN")}
         </div>
         <div className="ai-card-text ai-chat-page__status" style={{ marginBottom: 8 }}>
@@ -333,18 +338,19 @@ function AiChatPage() {
         ) : null}
       </div>
 
-      <div className="ai-card ai-chat-page__panel" style={{ marginBottom: 16, minHeight: 260 }}>
-        <div className="ai-card-title ai-chat-page__section-title">Discussion</div>
-        <div style={{ maxHeight: 260, overflowY: "auto", paddingRight: 4 }}>
+      <div className="ai-chat-discussion">
+        <div className="ai-chat-discussion-title">Discussion</div>
+        
+        <div className="ai-chat-messages">
           {messages.map((m, idx) => (
             <div
               className={`ai-chat-bubble ${m.role === "assistant" ? "ai-chat-bubble--assistant" : "ai-chat-bubble--user"}`}
               key={`${m.role}-${idx}`}
             >
-              <strong className="ai-chat-bubble__label">{m.role === "assistant" ? "AI" : "You"}:</strong>
+              <strong className="ai-chat-bubble__label">{m.role === "assistant" ? "AI" : "You"}</strong>
               <span className="ai-chat-bubble__content">{m.content}</span>
               {m.role === "assistant" && m.source ? (
-                <div style={{ marginTop: 6, fontSize: 11, color: "#6b7280" }}>
+                <div style={{ marginTop: 6, fontSize: 11, color: "#9ca3af" }}>
                   {m.source === "GEMINI"
                     ? `Source: Gemini${m.model ? ` (${m.model})` : ""}`
                     : m.source === "RULE_BASED"
@@ -356,7 +362,7 @@ function AiChatPage() {
           ))}
           {loading ? (
             <div className="ai-chat-bubble ai-chat-bubble--assistant">
-              <strong className="ai-chat-bubble__label">AI:</strong>
+              <strong className="ai-chat-bubble__label">AI</strong>
               <span className="ai-thinking" aria-label="Model is thinking">
                 <span className="ai-thinking-dot" />
                 <span className="ai-thinking-dot" />
@@ -366,40 +372,23 @@ function AiChatPage() {
           ) : null}
         </div>
 
-        {error ? <div className="ai-alert ai-alert--error">{error}</div> : null}
+        {error ? <div className="ai-alert ai-alert--error" style={{ margin: "0 16px 16px" }}>{error}</div> : null}
 
-        <div className="ai-chat-page__composer" style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <div className="ai-chat-composer">
           <input
-            className="ai-chat-page__input"
+            className="ai-chat-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type your concern or plan..."
             disabled={loading}
-            style={{
-              flex: 1,
-              border: "1px solid #d1d5db",
-              borderRadius: 8,
-              padding: "10px 12px",
-              opacity: loading ? 0.65 : 1,
-              cursor: loading ? "not-allowed" : "text",
-            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSend();
             }}
           />
           <button
-            className="ai-chat-page__send"
+            className={`ai-btn ${loading ? "ai-btn--danger" : "ai-btn--primary"}`}
             disabled={!loading && !input.trim()}
             onClick={loading ? handleTerminate : handleSend}
-            style={{
-              padding: "10px 16px",
-              borderRadius: 8,
-              border: loading ? "1px solid #dc2626" : "1px solid #2563eb",
-              background: loading ? "#fff1f2" : "#2563eb",
-              minWidth: 96,
-              color: loading ? "#b91c1c" : "white",
-              cursor: !loading && !input.trim() ? "not-allowed" : "pointer",
-            }}
             aria-label={loading ? "Terminate request" : "Send message"}
           >
             {loading ? (
@@ -416,23 +405,17 @@ function AiChatPage() {
         </div>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div className="ai-chat-footer-actions">
         <button
           onClick={() => navigate("/news")}
-          style={{
-            padding: "10px 16px",
-            borderRadius: 8,
-            border: "1px solid #3b82f6",
-            background: "#3b82f6",
-            color: "white",
-            cursor: "pointer",
-            fontWeight: "600"
-          }}
+          className="ai-btn ai-btn--primary"
         >
           Get Updates
         </button>
       </div>
     </div>
+    </div>
+  </div>
   );
 }
 

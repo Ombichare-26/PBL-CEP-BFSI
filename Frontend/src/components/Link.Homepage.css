@@ -1,50 +1,50 @@
 .link-section {
-    background: linear-gradient(90deg, #eff6ff 0%, #f8fafc 100%);
-    padding: 12px 0;
-    overflow: hidden;
-    border-top: 1px solid #dbeafe;
-    border-bottom: 1px solid #dbeafe;
-  }
-  
-  .marquee {
-    width: 100%;
-    overflow: hidden;
-    position: relative;
-  }
-  
-  .marquee-content {
-    display: inline-flex;
-    gap: 18px;
-    white-space: nowrap;
-    animation: scroll-left 15s linear infinite;
-    font-size: 15px;
-    align-items: center;
-    color: #1e293b;
-  }
-  .marquee-content:hover {
-    animation-play-state: paused;
-  }
-  
-  
-  .external-link {
-    color: #2563eb;
-    font-weight: 600;
-    text-decoration: none;
-    padding: 0.32rem 0.72rem;
-    border-radius: 999px;
-    background: rgba(37, 99, 235, 0.1);
-  }
-  
-  .external-link:hover {
-    text-decoration: underline;
-  }
-  
-  @keyframes scroll-left {
-    0% {
-      transform: translateX(-100%);
-    }
-    100% {
-      transform: translateX(300%);
-    }
-  }
-  
+  background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%);
+  padding: 14px 0;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.marquee {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.marquee-content {
+  display: inline-flex;
+  gap: 20px;
+  white-space: nowrap;
+  animation: scroll-left 20s linear infinite;
+  font-size: 0.95rem;
+  align-items: center;
+  color: #e2e8f0;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.marquee-content:hover {
+  animation-play-state: paused;
+}
+
+
+.external-link {
+  color: #38bdf8;
+  font-weight: 700;
+  text-decoration: none;
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;
+  background: rgba(56, 189, 248, 0.15);
+  transition: all 0.2s ease;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.external-link:hover {
+  background: rgba(56, 189, 248, 0.25);
+  transform: translateY(-1px);
+  color: #7dd3fc;
+}
+
+@keyframes scroll-left {
+  0% { transform: translateX(50%); }
+  100% { transform: translateX(-100%); }
+}

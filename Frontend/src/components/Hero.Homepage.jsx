@@ -46,7 +46,7 @@ export default function Hero() {
         <div className="image-box">
           <div className="image-box__ring" />
           <div className="image-box__content">
-            <span className="image-box__icon">📊</span>
+            <img src="/hero_3d_avatar.png" alt="Hero 3D Avatar" className="image-box__icon" />
             <div className="image-box__card image-box__card--top">Balanced view</div>
             <div className="image-box__card image-box__card--bottom">AI insights</div>
           </div>
