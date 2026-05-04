@@ -413,7 +413,7 @@ function PortfolioPage() {
 
                       <div className="ai-card">
                         <div className="ai-card-title">Summary</div>
-                        <div className="ai-card-text" style={{ fontSize: "1.1rem", lineHeight: "1.5" }}>
+                        <div className="ai-card-text">
                           {aiResult.aiEvaluation.summary || "—"}
                         </div>
                       </div>

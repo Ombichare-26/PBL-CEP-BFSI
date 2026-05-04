@@ -6,7 +6,7 @@ const NEWS_API_URL = "http://localhost:9001/news";
 const NewsPage = () => {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("Moneycontrol");
+  const [filter, setFilter] = useState("The Economic Times");
 
   useEffect(() => {
     fetchNews();
@@ -25,7 +25,7 @@ const NewsPage = () => {
     }
   };
 
-  const tabs = ["Moneycontrol", "The Economic Times", "Business Standard", "Livemint"];
+  const tabs = ["The Economic Times", "Business Standard"];
 
   const filteredNews = news.filter(item => {
     if (!item.source) return false;

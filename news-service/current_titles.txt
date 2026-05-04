@@ -1,6 +1,0 @@
-ETF count: 50
-  First title: EisnerAmper adds KLG team to bolster forensic and valuation services
-Small Cap count: 50
-  First title: Bitdeer Technologies Group (BTDR) Rating Lowered by Cantor Fitzgerald Amid Execution Concerns
-Flexi Cap count: 50
-  First title: EisnerAmper adds KLG team to bolster forensic and valuation services

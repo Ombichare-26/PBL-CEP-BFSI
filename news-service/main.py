@@ -26,9 +26,7 @@ HEADERS = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleW
 
 # Reliable Indian Mutual Fund RSS Feeds
 RSS_FEEDS = {
-    "Moneycontrol": "https://www.moneycontrol.com/rss/mfnews.xml",
     "The Economic Times": "https://economictimes.indiatimes.com/mf/rssfeedsdefault.cms",
-    "Livemint": "https://www.livemint.com/rss/mutual-funds",
     "Business Standard": "https://news.google.com/rss/search?q=mutual+funds+site:business-standard.com&hl=en-IN&gl=IN&ceid=IN:en"
 }
 
