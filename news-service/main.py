@@ -100,7 +100,7 @@ def fetch_news():
                     if datetime.now() - pub_dt > timedelta(days=7):
                         continue
                 
-                final_cat = categorize(title, summary)
+                final_cat = categorize(title, summary) #category
                 
                 # Trust the source query if category is ambiguous
                 if final_cat == "Mutual Fund":

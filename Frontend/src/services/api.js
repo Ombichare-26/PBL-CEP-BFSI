@@ -1,7 +1,7 @@
 const BACKEND_BASE = "http://localhost:8000/api/v1";
 const CAS_BASE = "http://localhost:9000";
 
-/* 1️⃣ Create session */
+/* 1️ Create session */
 export async function createSession() {
   const res = await fetch(`${BACKEND_BASE}/session`, {
     method: "POST"
@@ -10,7 +10,7 @@ export async function createSession() {
   return res.json();
 }
 
-/* 2️⃣ Upload CAS PDF to Python service */
+/* 2️ Upload CAS PDF to Python service */
 export async function uploadCASPdf(file) {
   const formData = new FormData();
   formData.append("file", file);
@@ -28,7 +28,7 @@ export async function uploadCASPdf(file) {
   return res.json();
 }
 
-/* 3️⃣ Save investment input */
+/* 3️ Save investment input */
 export async function saveInvestmentInput(sessionId, data) {
   const res = await fetch(`${BACKEND_BASE}/investments`, {
     method: "POST",
@@ -42,7 +42,7 @@ export async function saveInvestmentInput(sessionId, data) {
   return res.json();
 }
 
-/* 4️⃣ Save portfolio */
+/* 4️ Save portfolio */
 export async function savePortfolio(sessionId, funds) {
   const res = await fetch(`${BACKEND_BASE}/portfolio`, {
     method: "POST",

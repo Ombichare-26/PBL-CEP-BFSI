@@ -189,7 +189,7 @@ function AiChatPage() {
           <div style={{ marginTop: 10 }}>
             <div className="ai-card-title ai-chat-page__section-title">Verified Risk Snapshot</div>
             <div className="ai-card-text ai-chat-page__body">
-              Overall weighted risk score: <strong>{Number(finalRecommendation?.weightedAverageRiskScore || 0).toFixed(2)} / 6</strong>
+              Overall weighted risk score: <strong>{Number(finalRecommendation?.weightedAverageRiskScore ?? finalRecommendation?.riskScore?.weightedAverageRiskScore ?? 0).toFixed(2)} / 6</strong>
             </div>
             <div className="ai-card-text ai-chat-page__body">
               Overall verified risk: <strong>{formatEnum(finalRecommendation?.portfolioRiskView?.overallRiskLevel)}</strong>

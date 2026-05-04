@@ -32,7 +32,7 @@ export default function Input() {
     try {
       setError("");
 
-      // 🔒 Validation
+      //  Validation
       if (!pdfFile) {
         setError("Please upload CAS PDF");
         return;
@@ -49,24 +49,24 @@ export default function Input() {
 
       setLoading(true);
 
-      // 1️⃣ Create session
+      // 1️ Createing session
       const sessionRes = await createSession();
       const sessionId = sessionRes.data.session_id;
 
-      // 2️⃣ Upload CAS → Python microservice
+      // 2️ Upload CAS with the Python microservice
       const funds = await uploadCASPdf(pdfFile);
 
       if (!Array.isArray(funds) || funds.length === 0) {
         throw new Error("CAS extraction returned no portfolio data");
       }
 
-      // 3️⃣ Sanitize portfolio payload (important)
+      // 3️ Sanitize portfolio payload (important)
       const sanitizedFunds = funds.map((fund) => ({
         scheme_name: fund.scheme_name,
         units: fund.units,
         amfi_code: fund.amfi_code,
-        nav: fund.nav,                // ✅ ADD
-        current_value: fund.current_value,  // ✅ ADD
+        nav: fund.nav,                // ADD
+        current_value: fund.current_value,  //  ADD
         risk_level: fund.risk_level,
         risk_source_type: fund.risk_source_type,
         risk_source_url: fund.risk_source_url,
@@ -76,21 +76,22 @@ export default function Input() {
         category: fund.category
       }));
 
-      // 4️⃣ Save investment input
-      await saveInvestmentInput(sessionId, {
+      // 4️ Save investment input
+      await saveInvestmentInput(sessionId, 
+      {
         investable_amount: Number(investmentData.amount),
         expected_roi: Number(investmentData.roi),
         duration_months: Number(investmentData.duration)
       });
 
-      // 5️⃣ Save portfolio
+      // 5️ Save portfolio
       await savePortfolio(sessionId, sanitizedFunds);
 
-      // alert("Portfolio uploaded successfully 🚀");
+
 // Save session in localStorage (for PortfolioPage fallback)
 localStorage.setItem("chai_portfolio_session_id", sessionId);
 
-// Navigate to portfolio page
+// Navigate to portfolio page with session_id as query param
 navigate(`/portfolio?session_id=${sessionId}`);
     } catch (err) {
       console.error(err);

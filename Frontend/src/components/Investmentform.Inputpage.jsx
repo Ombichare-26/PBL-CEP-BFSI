@@ -7,7 +7,7 @@ export default function InvestmentForm({ investmentData, setInvestmentData }) {
         <span className="investment-form__tag">Step 2</span>
         <h3>Investment Details</h3>
       </div>
-
+      
       <div className="form-group">
         <label htmlFor="investable-amount">Investable Amount</label>
         <input

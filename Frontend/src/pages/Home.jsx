@@ -6,11 +6,10 @@ import LinkHomepage from "../components/Link.Homepage";
 export default function Home() {
   return (
     <>
-    <LinkHomepage />
-      <Hero />
-      
-      <HowWeWork />
-      <Privacy />
+      <LinkHomepage/>
+      <Hero/>
+      <HowWeWork/>
+      <Privacy/>
     </>
   );
 }
