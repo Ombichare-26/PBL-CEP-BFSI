@@ -12,7 +12,7 @@ export const uploadPortfolioFromJSON = async (req, res) => {
   try {
     const { session_id, funds } = req.body;
 
-    // 1️⃣ Basic validations
+    // 1️ Basic validations
     if (!session_id) {
       return res.status(400).json({
         success: false,
@@ -27,7 +27,7 @@ export const uploadPortfolioFromJSON = async (req, res) => {
       });
     }
 
-    // 2️⃣ Setup AMFI codes for batch Gemini checking
+    // 2️ Setup AMFI codes for batch Gemini checking
     const validFunds = funds.filter(
       (f) => f.amfi_code && f.amfi_code !== "NOT_FOUND" && f.amfi_code.trim() !== ""
     );
@@ -35,12 +35,12 @@ export const uploadPortfolioFromJSON = async (req, res) => {
     // Fast local lookup to populate already known risks instantly
     const schemeRiskMap = await fetchSchemeRiskMap(amfiCodes, validFunds, { allowGemini: false, allowDerivedFallback: false });
 
-    // Fire-and-forget background Gemini lookup for missing risks (bypassing 24h failure cache)
+    // Fire-and-forget background Gemini lookup for missing risks 
     fetchSchemeRiskMap(amfiCodes, validFunds, { allowGemini: true, allowDerivedFallback: false, forceRetryGemini: true }).catch((err) => {
       console.error("Background Gemini fetch failed:", err);
     });
 
-    // 3️⃣ Format data for DB
+    // 3️ Format data for DB
     const formattedData = funds.map((fund) => {
       if (!fund.scheme_name || fund.units === undefined) {
         throw new Error("scheme_name and units are required for each fund");
@@ -73,8 +73,8 @@ export const uploadPortfolioFromJSON = async (req, res) => {
       };
     });
 
-    // 4️⃣ Replace portfolio for session (safe behavior)
-    await UserPortfolio.deleteMany({ session_id });
+    // 4️ Replace portfolio for session (safe behavior)
+    await UserPortfolio.deleteMany({ session_id });//putting in databse
 
     const savedData = await UserPortfolio.insertMany(formattedData);
 

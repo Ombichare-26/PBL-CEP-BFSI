@@ -7,7 +7,6 @@ import requests
 from datetime import datetime, timedelta
 from math import sqrt
 from threading import Lock
-
 from cas_extractor import extract_portfolio
 
 app = FastAPI()
@@ -41,17 +40,17 @@ async def extract_cas(file: UploadFile = File(...)):
 
     tmp_path = None
     try:
-        print(f"🚀 Starting extraction for {file.filename}...")
+        print(f" Starting extraction for {file.filename}...")
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             tmp.write(await file.read())
             tmp_path = tmp.name
 
         results = extract_portfolio(tmp_path, include_risk_lookup=False)
         end_time = time.time()
-        print(f"✅ Extraction complete in {end_time - start_time:.2f}s. Found {len(results)} schemes.")
+        print(f" Extraction complete in {end_time - start_time:.2f}s. Found {len(results)} schemes.")
         return results
     except Exception as e:
-        print(f"❌ Extraction failed: {str(e)}")
+        print(f" Extraction failed: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Unexpected error: {str(e)}"
@@ -130,7 +129,7 @@ def calculate_annualized_volatility(nav_points: list[float]):
         return None
     mean = sum(returns) / len(returns)
     variance = sum((ret - mean) ** 2 for ret in returns) / (len(returns) - 1)
-    return round((sqrt(max(variance, 0)) * sqrt(252) * 100), 2)
+    return round((sqrt(max(variance, 0)) * sqrt(252) * 100), 2)#round off to 2 decimal places and annulize it....
 
 def calculate_max_drawdown(nav_points: list[float]):
     if not nav_points:
@@ -174,6 +173,8 @@ def derive_risk_metrics(category: str, nav_points: list[float], source_url: str 
         "asOfDate": as_of_date,
     }
 
+
+#fund history endpoint with caching and risk metrics 
 @app.get("/fund-history/{amfi_code}")
 async def get_fund_history(amfi_code: str, period: str = "1m"):
     try:
@@ -184,7 +185,7 @@ async def get_fund_history(amfi_code: str, period: str = "1m"):
             if cached_entry and cached_entry["expires_at"] > now:
                 return cached_entry["payload"]
 
-        url = f"https://api.mfapi.in/mf/{amfi_code}"
+        url = f"https://api.mfapi.in/mf/{amfi_code}"#111234
         res = requests.get(url, timeout=10)
 
         if res.status_code != 200:

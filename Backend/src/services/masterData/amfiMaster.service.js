@@ -45,6 +45,8 @@ function looksLikeFundHouseLine(line = "") {
   return /mutual fund|amc|asset management/i.test(text);
 }
 
+
+//CORE PARSER
 function parseAmfiNavMaster(text) {
   const rows = [];
   let currentFundHouse = "";
@@ -82,7 +84,7 @@ function parseAmfiNavMaster(text) {
 
   return rows.filter((row) => row.amfi_code && row.schema_name);
 }
-
+//////////////////////////////////////////////////////
 function parseRiskImportEntry(entry = {}) {
   const amfiCode = String(entry.amfi_code || entry.amfiCode || "").trim();
   const riskLevel = normalizeRiskLabel(entry.risk_level || entry.riskLevel);
@@ -104,7 +106,7 @@ function parseRiskImportEntry(entry = {}) {
     risk_notes: String(entry.risk_notes || entry.notes || "").trim(),
   };
 }
-
+//////////////////////////////////////////////////
 function parseCsvLine(line = "") {
   const values = [];
   let current = "";
@@ -132,7 +134,7 @@ function parseCsvLine(line = "") {
   values.push(current);
   return values.map((value) => value.trim());
 }
-
+///////////////////////////////////////////////////////////////////
 export async function syncAmfiMasterFromNav() {
   const response = await fetch(AMFI_NAV_URL, {
     headers: {
@@ -178,7 +180,7 @@ export async function syncAmfiMasterFromNav() {
     },
   }));
 
-  const result = await AMFIMaster.bulkWrite(operations, { ordered: false });
+  const result = await AMFIMaster.bulkWrite(operations, { ordered: false });///writing to database
 
   return {
     sourceUrl: AMFI_NAV_URL,
@@ -188,7 +190,7 @@ export async function syncAmfiMasterFromNav() {
     matched: toNumber(result.matchedCount),
   };
 }
-
+//////////////////////////////////////////////////
 export async function importRiskLevels({ entries = [], overwrite = false, defaultSourceUrl = "", defaultSourceType = "OFFICIAL_IMPORT", defaultAsOfDate = null }) {
   const normalizedEntries = (entries || []).map((entry) => {
     const parsed = parseRiskImportEntry(entry);
@@ -256,7 +258,7 @@ export async function importRiskLevels({ entries = [], overwrite = false, defaul
     coverage,
   };
 }
-
+///////////////////////////////////////////////////////
 export async function parseRiskImportFile(filePath) {
   const raw = await fs.readFile(filePath, "utf-8");
   const trimmed = raw.trim();
@@ -281,8 +283,8 @@ export async function parseRiskImportFile(filePath) {
       return acc;
     }, {});
   });
-}
-
+}//returns back to SyncAmfiMaster.js 
+/////////////////////////////////////////////////////////
 export async function getRiskMasterCoverage() {
   const [totalSchemes, withRiskLevel] = await Promise.all([
     AMFIMaster.countDocuments(),

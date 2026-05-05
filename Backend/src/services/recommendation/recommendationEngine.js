@@ -266,7 +266,7 @@ function buildReasoning({
     holdingNote
   );
 }
-
+//this the Entry pointt marked
 export async function analyzePortfolio({
   holdings = [],
   categoryPercentages = {},

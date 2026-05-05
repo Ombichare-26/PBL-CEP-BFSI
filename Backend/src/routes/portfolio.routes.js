@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.post("/", uploadPortfolioFromJSON);
 
-// 🔥 ADD THIS
+//  Get portfolio by session ID
 router.get("/:sessionId", getPortfolioBySession);
 
 export default router;

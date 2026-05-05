@@ -7,7 +7,7 @@ dotenv.config({ path: ".env" });
 
 async function main() {
   const riskFilePath = process.argv[2] || "";
-
+  
   await connectDB();
 
   const syncResult = await syncAmfiMasterFromNav();
