@@ -9,7 +9,7 @@ function parseNav(value) {
   }
 }
 
-/**
+/*
  * Fetch full AMFI NAV file once and return a Map of amfi_code -> { nav, schemeName, date }.
  * Use this to enrich multiple funds in one request (e.g. portfolio by session).
  */

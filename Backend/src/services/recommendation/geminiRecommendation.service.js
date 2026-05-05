@@ -619,16 +619,11 @@ export async function lookupOfficialRiskometersWithGemini(funds = []) {
     ])
   );
 
-  const buildBatchRiskometerPrompt = ({ source, batchFunds }) => `
+  const buildBatchRiskometerPrompt = ({ batchFunds }) => `
 Find the latest Risk-o-meter for each Indian mutual fund below and return ONE JSON ARRAY only.
 
-Allowed source: ${source?.label || "approved third-party source"} only.
-Allowed domain: ${(source?.domains || []).join(", ")}
-sourceType must be ${source?.key || "null"} or null.
-sourceUrl must be on ${(source?.domains || []).join(", ")} only.
-Do not use Value Research, ET Money, Paytm Money, Tickertape, Mint, or any other domain.
-If the exact ${source?.label || "source"} page is not found for a fund, return verified=false and riskometer=null for that fund.
-If the only available result is from another domain, return sourceUrl=null and verified=false for that fund.
+You may use any reliable Indian mutual fund platform (e.g., Moneycontrol, Value Research, Groww, ET Money, AMFI, or AMC websites).
+If no official riskometer is found, return verified=false and riskometer=null.
 
 Allowed riskometer values: Low, Low to Moderate, Moderate, Moderately High, High, Very High.
 Do not omit any fund. Do not return markdown, prose, or comments.
@@ -651,7 +646,7 @@ Return exactly this JSON array shape:
     "riskometer": "Low | Low to Moderate | Moderate | Moderately High | High | Very High | null",
     "asOfDateOrMonth": "string | null",
     "sourceUrl": "string | null",
-    "sourceType": "${source?.key || "null"} | null",
+    "sourceType": "string | null",
     "verified": true
   }
 ]
@@ -659,50 +654,42 @@ Return exactly this JSON array shape:
 
   let hadSuccessfulLookup = false;
   let pendingFunds = [...normalizedFunds];
-  for (const source of THIRD_PARTY_RISKOMETER_SOURCES) {
-    if (!pendingFunds.length) break;
-    try {
-      const { parsed, groundingUrls } = await callGeminiJson({
-        prompt: buildBatchRiskometerPrompt({ source, batchFunds: pendingFunds }),
-        system: RISKOMETER_SYSTEM_PROMPT,
-        useSearch: true,
-        temperature: 0,
-        maxOutputTokens: Math.max(getGeminiRiskometerMaxOutputTokens(), pendingFunds.length * 220),
+  
+  try {
+    const { parsed, groundingUrls } = await callGeminiJson({
+      prompt: buildBatchRiskometerPrompt({ batchFunds: pendingFunds }),
+      system: RISKOMETER_SYSTEM_PROMPT,
+      useSearch: true,
+      temperature: 0,
+      maxOutputTokens: Math.max(getGeminiRiskometerMaxOutputTokens(), pendingFunds.length * 220),
+    });
+    hadSuccessfulLookup = true;
+
+    const candidates = normalizeParsedRiskometerCandidates(parsed);
+
+    for (const candidate of candidates) {
+      const requestIndex = Number(candidate?.requestIndex);
+      if (!Number.isInteger(requestIndex) || !resultMap.has(requestIndex)) continue;
+
+      const riskLabel = normalizeRiskLabel(candidate?.riskometer);
+      const trustedSourceUrl = String(candidate?.sourceUrl || "").trim();
+      const verified = riskLabel !== "UNKNOWN" && candidate?.verified === true;
+
+      if (!verified) continue;
+
+      resultMap.set(requestIndex, {
+        schemeName: String(candidate?.schemeName || resultMap.get(requestIndex)?.schemeName || "").trim(),
+        amfiCode: String(candidate?.amfiCode || resultMap.get(requestIndex)?.amfiCode || "").trim(),
+        riskLabel,
+        sourceName: String(candidate?.sourceType || "GEMINI_SEARCH").toUpperCase(),
+        sourceUrl: trustedSourceUrl,
+        asOfDateText: String(candidate?.asOfDateOrMonth || "").trim(),
+        verified: true,
+        lookupStatus: trustedSourceUrl ? "FOUND" : "FOUND_NO_URL",
       });
-      hadSuccessfulLookup = true;
-
-      const candidates = normalizeParsedRiskometerCandidates(parsed);
-
-      for (const candidate of candidates) {
-        const requestIndex = Number(candidate?.requestIndex);
-        if (!Number.isInteger(requestIndex) || !resultMap.has(requestIndex)) continue;
-
-        const riskLabel = normalizeRiskLabel(candidate?.riskometer);
-        const candidateSourceType = String(candidate?.sourceType || "").trim().toUpperCase();
-        const sourceTypeMatches = candidateSourceType === String(source?.key || "").toUpperCase();
-        const trustedSourceUrl = sourceTypeMatches
-          ? String(candidate?.sourceUrl || "").trim()
-          : "";
-        const verified = riskLabel !== "UNKNOWN" && sourceTypeMatches;
-
-        if (!verified) continue;
-
-        resultMap.set(requestIndex, {
-          schemeName: String(candidate?.schemeName || resultMap.get(requestIndex)?.schemeName || "").trim(),
-          amfiCode: String(candidate?.amfiCode || resultMap.get(requestIndex)?.amfiCode || "").trim(),
-          riskLabel,
-          sourceName: candidateSourceType || String(source?.key || "").toUpperCase(),
-          sourceUrl: trustedSourceUrl,
-          asOfDateText: String(candidate?.asOfDateOrMonth || "").trim(),
-          verified: true,
-          lookupStatus: trustedSourceUrl ? "FOUND" : "FOUND_NO_URL",
-        });
-      }
-
-      pendingFunds = pendingFunds.filter((fund) => !resultMap.get(fund.requestIndex)?.verified);
-    } catch {
-      // Try next approved source.
     }
+  } catch (err) {
+    console.error("Gemini batch lookup failed:", err);
   }
 
   return normalizedFunds

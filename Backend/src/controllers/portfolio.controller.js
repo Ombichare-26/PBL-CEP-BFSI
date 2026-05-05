@@ -1,77 +1,11 @@
 
-// import fs from "fs";
-// import path from "path";
-// import { execFile } from "child_process";
-// import { promisify } from "util";
+
 import UserPortfolio from "../models/User_Portfolio.model.js";
 import { fetchAmfiNavMap } from "../utils/amfiNav.js";
 import { fetchSchemeRiskMap } from "../services/recommendation/riskometerUtils.js";
 
-// const execFileAsync = promisify(execFile);
-// const backendRoot = process.cwd();
-// const scriptPath = path.join(backendRoot, "test2.py");
-// const jsonPath = path.join(backendRoot, "portfolio_holdings.json");
-// // Use Backend venv Python so pdfplumber etc. are available
-// const pythonPath = path.join(backendRoot, "venv", "bin", "python");
 
-/**
- * Run test2.py to generate portfolio_holdings.json, then read the file and upload to MongoDB.
- * Use session_id from req.body.session_id if provided, else fallback to default.
- */
-// export const runPythonAndUploadPortfolio = async (req, res) => {
-//   try {
-//     const sessionId = req.body?.session_id || "6991641efd344970518dee12";
 
-//     // 1. Run Python script (test2.py) from backend root
-//     try {
-//       await execFileAsync(pythonPath, [scriptPath], {
-//         cwd: backendRoot,
-//         maxBuffer: 10 * 1024 * 1024
-//       });
-//     } catch (pyErr) {
-//       return res.status(500).json({
-//         success: false,
-//         message: "Python script (test2.py) failed",
-//         error: pyErr.stderr || pyErr.message
-//       });
-//     }
-
-//     // 2. Read generated JSON
-//     const rawData = fs.readFileSync(jsonPath, "utf-8");
-//     const extractedData = JSON.parse(rawData);
-
-//     if (!Array.isArray(extractedData) || extractedData.length === 0) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "No portfolio data in JSON (script may have extracted nothing)."
-//       });
-//     }
-
-//     // 3. Format and insert into MongoDB
-//     const formattedData = extractedData.map((fund) => ({
-//       session_id: sessionId,
-//       scheme_name: fund.scheme_name,
-//       units: fund.units,
-//       amfi_code: fund.amfi_code || null,
-//       category: fund.category || "OTHER"
-//     }));
-
-//     await UserPortfolio.deleteMany({ session_id: sessionId });
-//     const savedData = await UserPortfolio.insertMany(formattedData);
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Python script ran successfully; portfolio uploaded to MongoDB",
-//       data: savedData
-//     });
-//   } catch (error) {
-//     return res.status(500).json({
-//       success: false,
-//       message: "Error running script or uploading portfolio",
-//       error: error.message
-//     });
-//   }
-// };
 
 /** Legacy: upload from existing portfolio_holdings.json without running Python. */
 export const uploadPortfolioFromJSON = async (req, res) => {
@@ -98,9 +32,13 @@ export const uploadPortfolioFromJSON = async (req, res) => {
       (f) => f.amfi_code && f.amfi_code !== "NOT_FOUND" && f.amfi_code.trim() !== ""
     );
     const amfiCodes = [...new Set(validFunds.map((f) => String(f.amfi_code).trim()))];
-    
-    // Call Gemini only during upload
-    const schemeRiskMap = await fetchSchemeRiskMap(amfiCodes, validFunds, { allowGemini: true, allowDerivedFallback: false });
+    // Fast local lookup to populate already known risks instantly
+    const schemeRiskMap = await fetchSchemeRiskMap(amfiCodes, validFunds, { allowGemini: false, allowDerivedFallback: false });
+
+    // Fire-and-forget background Gemini lookup for missing risks (bypassing 24h failure cache)
+    fetchSchemeRiskMap(amfiCodes, validFunds, { allowGemini: true, allowDerivedFallback: false, forceRetryGemini: true }).catch((err) => {
+      console.error("Background Gemini fetch failed:", err);
+    });
 
     // 3️⃣ Format data for DB
     const formattedData = funds.map((fund) => {
@@ -170,6 +108,12 @@ export const getPortfolioBySession = async (req, res) => {
     // Fetch AMFI NAV once and enrich each fund with live NAV and current value
     const amfiNavMap = await fetchAmfiNavMap();
 
+    const validFunds = portfolio.filter(
+      (f) => f.amfi_code && f.amfi_code !== "NOT_FOUND" && String(f.amfi_code).trim() !== ""
+    );
+    const amfiCodes = [...new Set(validFunds.map((f) => String(f.amfi_code).trim()))];
+    const schemeRiskMap = await fetchSchemeRiskMap(amfiCodes, validFunds, { allowGemini: false });
+
     const data = portfolio.map((doc) => {
       const fund = doc.toObject ? doc.toObject() : { ...doc };
 
@@ -183,6 +127,16 @@ export const getPortfolioBySession = async (req, res) => {
       } else {
         fund.nav = 0;
         fund.current_value = 0;
+      }
+
+      const riskEntry = schemeRiskMap.get(key);
+      const normalizedSchemeRiskLabel = String(riskEntry?.riskLabel || "").trim().toUpperCase();
+      const hasUsableSchemeRisk = normalizedSchemeRiskLabel && normalizedSchemeRiskLabel !== "UNKNOWN";
+
+      if (hasUsableSchemeRisk) {
+        fund.risk_level = riskEntry.riskLabel;
+        fund.risk_source_type = riskEntry.riskSource || fund.risk_source_type;
+        fund.risk_source_url = riskEntry.riskSourceUrl || fund.risk_source_url;
       }
 
       fund.category = fund.category || "OTHER";

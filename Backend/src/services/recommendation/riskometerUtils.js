@@ -672,6 +672,7 @@ async function cacheGeminiRiskometerFailure({
 export async function fetchSchemeRiskMap(amfiCodes = [], holdings = [], options = {}) {
   const allowGemini = options.allowGemini !== false;
   const allowDerivedFallback = options.allowDerivedFallback === true;
+  const forceRetryGemini = options.forceRetryGemini === true;
   const uniqueCodes = [...new Set((amfiCodes || []).map((code) => String(code || "").trim()).filter(Boolean))];
   if (!uniqueCodes.length) return new Map();
   const holdingByCode = new Map(
@@ -717,7 +718,7 @@ export async function fetchSchemeRiskMap(amfiCodes = [], holdings = [], options 
       continue;
     }
 
-    if (isRecentFailedGeminiLookup(doc)) {
+    if (isRecentFailedGeminiLookup(doc) && !forceRetryGemini) {
       resolvedDocs.push({
         amfiCode: String(doc.amfi_code),
         schemeName: doc.scheme_name || "",
